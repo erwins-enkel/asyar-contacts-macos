@@ -214,3 +214,7 @@ src/contacts/
 
 Alles unter `src/contacts/` ist rein und in `node` testbar — es importiert
 höchstens Typen aus `asyar-sdk/contracts`, nie die rollenprüfenden Einstiege.
+
+## Lizenz
+
+MIT — siehe [LICENSE](LICENSE).
