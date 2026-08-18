@@ -245,11 +245,11 @@ Was einer Erweiterung bleibt, ist `pagehide`: es feuert, solange der Frame noch
 posten kann, und das Elternfenster überlebt uns. Genau dort meldet
 `ContactsView.svelte` seine Aktionen ab.
 
-**Nicht verifiziert:** dass dieser `pagehide`-Weg den Leak tatsächlich schließt.
-Der Leak ließ sich per Skript nicht zuverlässig auslösen — das Launcher-Fenster
-verbirgt sich nach einem Deeplink, und ein zweiter Deeplink wechselt die View
-dann nicht mehr. Der Handgriff dafür: Kontakte-Panel öffnen, ohne Umweg über die
-Wurzel in ein anderes Extension-Panel wechseln, dort ⌘K drücken.
+**BELEGT**, dass dieser `pagehide`-Weg den Leak schließt — von Hand nachgeprüft
+(Kontakte-Panel öffnen, ohne Umweg über die Wurzel in ein anderes
+Extension-Panel wechseln, dort ⌘K: die Kontakt-Aktionen sind weg). Per Skript
+ließ er sich nicht auslösen, weil das Launcher-Fenster sich nach einem Deeplink
+verbirgt und ein zweiter Deeplink die View dann nicht mehr wechselt.
 
 **Es gibt kein Deaktivierungs-Signal ins Iframe.** Der Host sendet an eine View
 genau drei Nachrichtentypen — `asyar:view:search`, `asyar:view:submit`,
