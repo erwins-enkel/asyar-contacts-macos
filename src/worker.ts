@@ -31,7 +31,7 @@ import manifest from '../manifest.json';
 import { readIndex, writeIndex } from './contacts/cache';
 import { loadIndex } from './contacts/loader';
 
-const FALLBACK_ID = 'blog.osthoff.contacts';
+const FALLBACK_ID = 'dev.erwins-enkel.contacts';
 
 const extensionId =
   window.location.hostname === 'localhost' ||

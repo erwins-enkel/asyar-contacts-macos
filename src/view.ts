@@ -22,7 +22,7 @@ import {
 import manifest from '../manifest.json';
 import ContactsView from './ContactsView.svelte';
 
-const FALLBACK_ID = 'blog.osthoff.contacts';
+const FALLBACK_ID = 'dev.erwins-enkel.contacts';
 
 // Under the dev server the id is the first path segment; in the installed app
 // the iframe hostname is the id.

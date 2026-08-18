@@ -80,6 +80,12 @@ löst sie aber nicht zu einer Person auf.
 
 ## Asyar
 
+> **Zur ID in den Log-Zitaten unten.** Die Erweiterung hieß während dieser
+> Beobachtungen `blog.osthoff.contacts` und heißt inzwischen
+> `dev.erwins-enkel.contacts`. Die Zitate bleiben wörtlich stehen — eine
+> Logzeile umzuschreiben, die so nie ausgegeben wurde, wäre der schlechtere
+> Tausch gegen etwas Kosmetik.
+
 ### `searchable: true` ist das, was die Suchleiste ans Panel hängt
 
 **BELEGT**, erklärt durch **QUELLE**. Ohne das Flag bleibt Asyars Suchfeld bei

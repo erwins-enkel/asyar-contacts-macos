@@ -16,7 +16,7 @@ describe('looksLikePermissionProblem', () => {
   it('recognises the SDK’s own phrasing', () => {
     expect(
       looksLikePermissionProblem(
-        'Extension "blog.osthoff.contacts" called "asyar:api:shell:spawn" but did not declare permission "shell:spawn"',
+        'Extension "dev.erwins-enkel.contacts" called "asyar:api:shell:spawn" but did not declare permission "shell:spawn"',
       ),
     ).toBe(true);
   });

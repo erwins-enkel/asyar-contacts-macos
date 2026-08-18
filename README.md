@@ -9,7 +9,7 @@ geplante Hintergrund-Refresh heißt **„Adressbuch-Cache auffrischen“**, weil
 keine Möglichkeit bietet, einen Befehl aus der Suche auszublenden — er darf also
 nicht auf denselben Anfangsbuchstaben konkurrieren.
 
-`blog.osthoff.contacts` · nur macOS · liest ausschließlich lokal, kein Netzwerk.
+`dev.erwins-enkel.contacts` · nur macOS · liest ausschließlich lokal, kein Netzwerk.
 
 ---
 

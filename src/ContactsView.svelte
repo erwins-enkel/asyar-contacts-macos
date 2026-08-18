@@ -635,7 +635,7 @@
 
   // `boot()` owns its own error boundary, so this cannot become an unhandled
   // rejection — which is what the launcher was reporting as a bare
-  // "blog.osthoff.contacts promise was rejected".
+  // "<extensionId> promise was rejected".
   void boot();
 </script>
 
