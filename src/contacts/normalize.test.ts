@@ -1,3 +1,9 @@
+// Alle Fixtures hier sind erfunden: Max/Erika Mustermann und Lieschen Müller,
+// dazu Rufnummern aus offensichtlichen Ziffernfolgen. Das ist keine Kosmetik —
+// eine Erweiterung, die Adressbücher liest, darf beim Testen keine echten
+// Personen in ihr eigenes Repository tragen. Die *Struktur* der Nummern ist
+// dagegen echt (deutsche Mobilnummer, Festnetz mit Vorwahl, 0049-Schreibweise),
+// denn genau die prüfen die Tests.
 import { describe, expect, it } from 'vitest';
 import { displayName, normalizeAll, normalizeContact, parsePreferredLabels } from './normalize';
 import type { NormalizeOptions } from './normalize';
@@ -138,7 +144,10 @@ describe('normalizeContact', () => {
     );
     expect(contact.haystack).toContain('0151 1234567');
     expect(contact.haystack).toContain('+491511234567');
-    expect(contact.haystack).toContain('silvia');
+    expect(contact.haystack).toContain('lieschen');
+    // The haystack is lowercased, and umlauts have to survive that — typing
+    // "müller" must find a contact stored as "Müller".
+    expect(contact.haystack).toContain('müller');
   });
 });
 
