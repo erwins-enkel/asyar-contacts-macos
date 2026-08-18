@@ -3,6 +3,12 @@
 Deine macOS-Kontakte direkt im Asyar-Launcher: tippen, markieren, `⏎` — und die
 Nummer wird über **Telefon.app** und damit über dein gekoppeltes iPhone gewählt.
 
+Im Launcher heißt der Befehl **„Kontakte durchsuchen“** — bewusst mit Verb, damit
+er sich in der Trefferliste von macOS' eigener Kontakte.app unterscheidet. Der
+geplante Hintergrund-Refresh heißt **„Adressbuch-Cache auffrischen“**, weil Asyar
+keine Möglichkeit bietet, einen Befehl aus der Suche auszublenden — er darf also
+nicht auf denselben Anfangsbuchstaben konkurrieren.
+
 `blog.osthoff.contacts` · nur macOS · liest ausschließlich lokal, kein Netzwerk.
 
 ---
@@ -127,7 +133,7 @@ Tippen beenden, das die Liste filtert.
 
 ```bash
 npm run check     # tsc --noEmit && svelte-check
-npm test          # 74 Unit-Tests über die reine Schicht
+npm test          # 76 Unit-Tests über die reine Schicht
 npm run build     # vite build + Bundle-Prüfung
 npm run validate  # asyar validate
 ```

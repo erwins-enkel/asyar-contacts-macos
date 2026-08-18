@@ -144,6 +144,49 @@ der Scheme-Handler kanonisiert den Treffer und prüft ihn gegen
 `#[cfg(debug_assertions)]`. Ergebnis wäre **403** für `view.html` — sichtbar nur
 als leeres Panel und `[workerRegistry] unmount … reason=timeout` im Log.
 
+### Ein umbenannter Befehl behält seinen alten Namen in der Suche
+
+**BELEGT.** Der Launcher hält jeden Befehl in `search_index.db` (Tabelle
+`search_items`, eine JSON-Spalte `data` pro Zeile, Schlüssel
+`cmd_<extensionId>_<commandId>`) und schreibt den `name` beim Registrieren
+**nicht** neu. Nach `manifest.json` → `link --copy` → Neustart stand dort
+weiterhin:
+
+```json
+{"id":"cmd_blog.osthoff.contacts_contacts","name":"Kontakte","usageCount":7, …}
+```
+
+Die Zeile trägt auch die Häufigkeitsdaten (`usageCount`, `lastUsedAt`), aus denen
+sich das Ranking speist. Sie einfach zu löschen erzwingt zwar den neuen Namen,
+wirft aber genau diese Daten weg — der Befehl rutschte danach von Platz 1 auf
+Platz 4, hinter macOS' eigene Kontakte.app.
+
+**Der richtige Weg** ist, das JSON an Ort und Stelle zu aktualisieren, bei
+beendetem Launcher (im laufenden Betrieb überschreibt Asyar die Zeile wieder):
+
+```python
+d = json.loads(row['data'])
+d['name'] = 'Neuer Name'
+if d.get('trigger'): d['trigger'] = d['name']   # trigger folgt per Default dem Namen
+```
+
+**BELEGT:** so gesetzt übersteht der neue Name den Neustart, und `usageCount`
+bleibt stehen.
+
+### Befehle lassen sich nicht aus der Suche ausblenden
+
+**QUELLE**, `ExtensionCommand` in `extensions/mod.rs`. Es gibt kein `hidden`,
+kein `excludeFromSearch` — die legalen Felder sind `id`, `name`, `description`,
+`trigger`, `mode`, `icon`, `component`, `schedule`, `preferences`, `actions`,
+`arguments`, `requireAnyOf`, `searchBarAccessory`. Jeder deklarierte Befehl
+erscheint in der Root-Suche, auch ein reiner `mode: "background"`-Wartungsbefehl.
+
+Praktische Folge: ein interner Befehl braucht einen Namen, der nicht mit dem
+eigentlichen konkurriert. Der geplante Cache-Refresh hieß erst „Kontakte
+aktualisieren" und rangierte bei der Eingabe `kon` über „Kontakte durchsuchen";
+als „Adressbuch-Cache auffrischen" enthält er kein `kon` mehr und ist aus dem
+Weg, ohne dass der Zeitplan sich ändert.
+
 ### `platforms` heißt `macos`, nicht `mac`
 
 **BELEGT.** Die Tutorials zeigen `"platforms": ["mac"]`. `asyar validate` lehnt

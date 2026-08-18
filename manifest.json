@@ -84,7 +84,7 @@
   "commands": [
     {
       "id": "contacts",
-      "name": "Kontakte",
+      "name": "Kontakte durchsuchen",
       "description": "Search macOS Contacts and call, FaceTime or message them via your iPhone.",
       "icon": "📇",
       "mode": "view",
@@ -92,7 +92,7 @@
     },
     {
       "id": "refresh",
-      "name": "Kontakte aktualisieren",
+      "name": "Adressbuch-Cache auffrischen",
       "description": "Refresh the cached contact index in the background.",
       "icon": "🔄",
       "mode": "background",
