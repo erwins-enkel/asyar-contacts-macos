@@ -1,0 +1,27 @@
+{
+  "name": "blog.osthoff.contacts",
+  "version": "0.1.0",
+  "description": "macOS Contacts in Asyar \u2014 search and call through your iPhone.",
+  "type": "module",
+  "private": true,
+  "scripts": {
+    "build": "vite build && node scripts/check-bundle.mjs",
+    "check": "tsc --noEmit && svelte-check --threshold error",
+    "validate": "asyar validate",
+    "link": "asyar link --copy",
+    "test": "vitest run",
+    "test:watch": "vitest"
+  },
+  "dependencies": {
+    "svelte": "^5.0.0"
+  },
+  "devDependencies": {
+    "@sveltejs/vite-plugin-svelte": "^5.0.0",
+    "@types/node": "^22.0.0",
+    "asyar-sdk": "^4.7.0",
+    "svelte-check": "^4.7.6",
+    "typescript": "^5.0.0",
+    "vite": "^6.0.0",
+    "vitest": "3.2.4"
+  }
+}

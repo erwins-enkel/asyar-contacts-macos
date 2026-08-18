@@ -1,0 +1,115 @@
+{
+  "id": "blog.osthoff.contacts",
+  "name": "Kontakte",
+  "version": "0.1.0",
+  "type": "extension",
+  "description": "macOS Contacts in Asyar: search contacts and dial them through your iPhone.",
+  "author": "Kai Osthoff",
+  "icon": "📇",
+  "platforms": ["macos"],
+  "searchable": true,
+  "asyarSdk": "^4.7.0",
+  "permissions": [
+    "shell:spawn",
+    "shell:open-url",
+    "clipboard:write",
+    "cache:read",
+    "cache:write",
+    "preferences:read"
+  ],
+  "permissionArgs": {
+    "shell:spawn": ["osascript"],
+    "shell:open-url": [
+      "facetime",
+      "facetime-audio",
+      "sms",
+      "imessage",
+      "addressbook",
+      "x-apple.systempreferences"
+    ]
+  },
+  "preferences": [
+    {
+      "name": "primaryAction",
+      "type": "dropdown",
+      "title": "Enter-Taste",
+      "description": "Was Enter auf einem markierten Kontakt auslöst.",
+      "default": "call",
+      "data": [
+        { "title": "Anrufen (Telefon / iPhone)", "value": "call" },
+        { "title": "FaceTime Audio", "value": "facetime-audio" },
+        { "title": "FaceTime Video", "value": "facetime" },
+        { "title": "Nachricht senden", "value": "sms" },
+        { "title": "Nummer kopieren", "value": "copy" }
+      ]
+    },
+    {
+      "name": "countryCode",
+      "type": "textfield",
+      "title": "Landesvorwahl",
+      "description": "Vorwahl für national gespeicherte Nummern, z. B. +49. \"auto\" übernimmt die Region aus den macOS-Systemeinstellungen. Leer lässt Nummern unverändert.",
+      "default": "auto",
+      "placeholder": "auto"
+    },
+    {
+      "name": "preferredLabels",
+      "type": "textfield",
+      "title": "Bevorzugte Rufnummern",
+      "description": "Kommagetrennte Label-Reihenfolge für die Nummer, die zuerst gewählt wird.",
+      "default": "iPhone, Mobil, Mobile, Handy, Privat, Home, Arbeit, Work",
+      "placeholder": "iPhone, Mobil, Privat"
+    },
+    {
+      "name": "showAvatars",
+      "type": "checkbox",
+      "title": "Kontaktfotos anzeigen",
+      "description": "Lädt das Foto des markierten Kontakts nach. Ohne Haken erscheinen nur Initialen.",
+      "default": true
+    },
+    {
+      "name": "includeOrganizations",
+      "type": "checkbox",
+      "title": "Firmen einschließen",
+      "description": "Zeigt auch Einträge ohne Personennamen, also reine Firmenkontakte.",
+      "default": true
+    },
+    {
+      "name": "backgroundRefresh",
+      "type": "checkbox",
+      "title": "Im Hintergrund aktualisieren",
+      "description": "Frischt den Kontakt-Cache alle 30 Minuten auf, damit der erste Treffer sofort steht. Läuft erst, nachdem die Kontakte einmal manuell geladen wurden.",
+      "default": true
+    }
+  ],
+  "commands": [
+    {
+      "id": "contacts",
+      "name": "Kontakte",
+      "description": "Search macOS Contacts and call, FaceTime or message them via your iPhone.",
+      "icon": "📇",
+      "mode": "view",
+      "component": "ContactsView"
+    },
+    {
+      "id": "refresh",
+      "name": "Kontakte aktualisieren",
+      "description": "Refresh the cached contact index in the background.",
+      "icon": "🔄",
+      "mode": "background",
+      "schedule": {
+        "intervalSeconds": 1800
+      }
+    }
+  ],
+  "background": {
+    "main": "dist/worker.js"
+  },
+  "actions": [
+    {
+      "id": "reload-contacts",
+      "title": "Kontakte neu laden",
+      "description": "Liest die macOS-Kontakte neu ein und verwirft den Cache.",
+      "icon": "🔄"
+    }
+  ]
+}
