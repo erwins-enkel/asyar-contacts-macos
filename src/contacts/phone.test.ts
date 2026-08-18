@@ -5,6 +5,7 @@ import {
   normalizeDial,
   reachUrl,
   resolveDialPrefix,
+  whatsappUrl,
 } from './phone';
 
 describe('resolveDialPrefix', () => {
@@ -78,6 +79,24 @@ describe('reachUrl', () => {
 
   it('keeps the leading + intact through encoding', () => {
     expect(reachUrl('call', '+49 172')).toBe('tel:+49%20172');
+  });
+
+  it('sends WhatsApp bare E.164 digits, without the plus', () => {
+    // Verified against the app: passing "490000000000" made WhatsApp report
+    // "+490000000000 ist nicht bei WhatsApp registriert" — it re-adds the plus
+    // itself, so sending one would double it.
+    expect(reachUrl('whatsapp', '+491701112223')).toBe(
+      'whatsapp://send?phone=491701112223',
+    );
+  });
+
+  it('refuses WhatsApp for a number with no country code', () => {
+    // "01701112223" would be read as "+01631…" — a different subscriber in a
+    // country that does not exist. Better no URL than the wrong chat.
+    expect(reachUrl('whatsapp', '01701112223')).toBeNull();
+    expect(whatsappUrl('01701112223')).toBeNull();
+    expect(whatsappUrl('+')).toBeNull();
+    expect(whatsappUrl('')).toBeNull();
   });
 
   it('has no URL for the clipboard and email actions', () => {

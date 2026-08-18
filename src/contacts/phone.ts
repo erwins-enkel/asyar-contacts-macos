@@ -83,15 +83,43 @@ function encodeNumber(dial: string): string {
   return encodeURIComponent(dial).replace(/%2B/gi, '+');
 }
 
-export type ReachAction = 'call' | 'facetime' | 'facetime-audio' | 'sms' | 'copy' | 'email';
+export type ReachAction =
+  | 'call'
+  | 'facetime'
+  | 'facetime-audio'
+  | 'sms'
+  | 'whatsapp'
+  | 'copy'
+  | 'email';
+
+/**
+ * WhatsApp's own scheme, which does not take a `tel:`-style number.
+ *
+ * `whatsapp://send?phone=` wants bare E.164 digits with **no** leading `+` —
+ * WhatsApp puts it back itself (verified: passing `490000000000` produced the
+ * error "+490000000000 ist nicht bei WhatsApp registriert").
+ *
+ * The number must therefore already carry a country code. A nationally-stored
+ * number like `01701112223` would be read as `+01631…`, i.e. a different
+ * subscriber in a country that does not exist — so this returns `null` rather
+ * than guessing, and the panel explains what to configure. This is the one
+ * action where the `Landesvorwahl` preference is not optional.
+ */
+export function whatsappUrl(dial: string): string | null {
+  if (!dial.startsWith('+')) return null;
+  const digits = dial.slice(1).replace(/[^\d]/g, '');
+  return digits === '' ? null : `whatsapp://send?phone=${digits}`;
+}
 
 /**
  * The URL that performs `action` on `dial`.
  *
  * `tel:` is the one that matters here: on macOS 26 it is registered to
  * Phone.app, which places the call over the paired iPhone. FaceTime video and
- * audio get their own schemes; `sms:` opens Messages. `copy` has no URL — the
- * caller writes to the clipboard instead — so it returns `null`.
+ * audio get their own schemes; `sms:` opens Messages, `whatsapp:` opens
+ * WhatsApp. `copy` has no URL — the caller writes to the clipboard instead —
+ * so it returns `null`, as does `email`, which needs an address rather than a
+ * number (see `mailUrl`).
  */
 export function reachUrl(action: ReachAction, dial: string): string | null {
   if (dial === '') return null;
@@ -105,6 +133,8 @@ export function reachUrl(action: ReachAction, dial: string): string | null {
       return `facetime-audio:${n}`;
     case 'sms':
       return `sms:${n}`;
+    case 'whatsapp':
+      return whatsappUrl(dial);
     default:
       return null;
   }

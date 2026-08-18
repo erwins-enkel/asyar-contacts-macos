@@ -22,6 +22,7 @@ nicht auf denselben Anfangsbuchstaben konkurrieren.
 | `⏎` | **Anrufen** (`tel:` → Telefon.app → iPhone) |
 | `⌘⏎` | FaceTime Video |
 | `⌥⏎` | Nachricht (Messages) |
+| `⇧⌥⏎` | WhatsApp |
 | `⌥⌘⏎` | E-Mail |
 | `⇧⏎` | Nummer in die Zwischenablage |
 | `⇧⌘⏎` | in der Kontakte-App öffnen |
@@ -55,6 +56,10 @@ Beim ersten Öffnen sind zwei Freigaben nötig, jeweils einmalig:
 2. **macOS: „asyar möchte auf deine Kontakte zugreifen“ → Erlauben.** Das
    Panel bietet dafür einen Knopf an und verlinkt sonst in die
    Systemeinstellungen.
+
+Beides wird auch dann wieder fällig, wenn sich `permissions` **oder**
+`permissionArgs` im Manifest ändern — eine zusätzlich freigeschaltete
+URL-Schema-Zeile reicht schon.
 
 Zusätzlich fragt Asyar einmalig, ob die Erweiterung `/usr/bin/osascript`
 starten darf. Das Binary ist im Manifest unter `permissionArgs["shell:spawn"]`
@@ -107,6 +112,12 @@ gekoppelte iPhone führt. `facetime:`, `facetime-audio:`, `sms:` und
 `addressbook:` sind über `permissionArgs["shell:open-url"]` freigeschaltet;
 `tel:` und `mailto:` deckt die Basisberechtigung ab.
 
+**WhatsApp** tanzt aus der Reihe: `whatsapp://send?phone=` will nackte
+E.164-Ziffern **ohne** führendes `+` — die App setzt es selbst wieder davor.
+Deshalb braucht diese eine Aktion zwingend eine Nummer mit Landesvorwahl; eine
+national gespeicherte `01701112223` würde als `+01631…` gelesen. Statt zu raten
+verweigert die Erweiterung den Aufruf und sagt, welche Einstellung fehlt.
+
 Nummern werden vor dem Wählen nach E.164 normalisiert, aber nur, wo das
 eindeutig ist (`src/contacts/phone.ts`): `+…` bleibt, `00…` wird zu `+…`, eine
 führende `0` wird durch die Landesvorwahl ersetzt. Eine Nummer *ohne*
@@ -133,7 +144,7 @@ Tippen beenden, das die Liste filtert.
 
 ```bash
 npm run check     # tsc --noEmit && svelte-check
-npm test          # 76 Unit-Tests über die reine Schicht
+npm test          # 79 Unit-Tests über die reine Schicht
 npm run build     # vite build + Bundle-Prüfung
 npm run validate  # asyar validate
 ```

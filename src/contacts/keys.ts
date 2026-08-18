@@ -60,8 +60,10 @@ export function intentFor(event: KeyEventLike, primaryAction: ReachAction): Inte
       return { kind: 'cycle-number', direction: 'previous' };
 
     case 'Enter':
-      // Ordered by how much the modifier changes the outcome: ⇧ is the
-      // harmless one (clipboard), ⌘/⌥ start something.
+      // Every combination is spelled out and the more specific ones come
+      // first, because these overlap: ⇧⌥⏎ has to be caught before the bare
+      // `alt` branch, or WhatsApp would fall through to Messages.
+      if (shift && alt && !command) return { kind: 'reach', action: 'whatsapp' };
       if (shift && !command && !alt) return { kind: 'reach', action: 'copy' };
       if (command && shift) return { kind: 'open-in-contacts' };
       if (command && alt) return { kind: 'reach', action: 'email' };
@@ -82,6 +84,7 @@ export const SHORTCUT_HINTS: ReadonlyArray<{ keys: string; label: string }> = [
   { keys: '⏎', label: 'Anrufen' },
   { keys: '⌘⏎', label: 'FaceTime' },
   { keys: '⌥⏎', label: 'Nachricht' },
+  { keys: '⇧⌥⏎', label: 'WhatsApp' },
   { keys: '⌥⌘⏎', label: 'E-Mail' },
   { keys: '⇧⏎', label: 'Kopieren' },
   { keys: '⇧⌘⏎', label: 'Kontakte-App' },

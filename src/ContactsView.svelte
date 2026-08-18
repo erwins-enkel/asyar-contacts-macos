@@ -337,7 +337,13 @@
 
     const url = reachUrl(action, phone.dial);
     if (url === null) {
-      showNotice('Diese Nummer lässt sich nicht wählen.');
+      // For WhatsApp this is the one specific, fixable cause: its scheme needs
+      // bare E.164 digits, so a nationally-stored number has nothing to send.
+      showNotice(
+        action === 'whatsapp'
+          ? `${phone.display} hat keine Landesvorwahl. WhatsApp braucht sie — trag sie unter Einstellungen → Landesvorwahl ein.`
+          : 'Diese Nummer lässt sich nicht wählen.',
+      );
       return;
     }
     await launch(url, `${url.split(':')[0]}: ließ sich nicht öffnen.`);
@@ -519,6 +525,17 @@
         category: ActionCategory.PRIMARY,
         context: ActionContext.EXTENSION_VIEW,
         execute: () => reach('sms'),
+      },
+      {
+        id: 'whatsapp',
+        title: 'WhatsApp',
+        description: 'Öffnet den Chat zur markierten Nummer. Braucht eine Nummer mit Landesvorwahl.',
+        icon: '🟢',
+        shortcut: '⇧⌥⏎',
+        extensionId,
+        category: ActionCategory.PRIMARY,
+        context: ActionContext.EXTENSION_VIEW,
+        execute: () => reach('whatsapp'),
       },
       {
         id: 'email',

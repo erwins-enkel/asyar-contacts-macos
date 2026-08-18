@@ -136,6 +136,28 @@ Das Binary ist im Manifest unter `permissionArgs["shell:spawn"]` deklariert,
 damit es im Consent-Dialog erscheint, statt später unvermittelt aus dem
 Hintergrund-Worker zu fragen.
 
+**Auch `permissionArgs` allein löst den Gate erneut aus.** **BELEGT:** das
+Hinzufügen von `whatsapp` zu `permissionArgs["shell:open-url"]` — ohne jede
+Änderung an der `permissions`-Liste — setzte die Erweiterung wieder auf null
+Berechtigungen zurück. Das ist konsequent, denn die Args erweitern den Umfang;
+aber es heißt, dass jede neue URL-Schema-Freigabe einen Gang in die
+Einstellungen kostet.
+
+**Der Wortlaut im Log ist nicht stabil.** Beim ersten Mal war es
+*„Withholding permission registration … declared permissions exceed recorded
+consent"*, beim zweiten Mal:
+
+```
+[PermissionGate] BLOCKED: Extension "blog.osthoff.contacts" is not registered
+in the permission registry.
+```
+
+Nach der ersten Formulierung zu grepen ergab beim zweiten Mal nichts, und der
+Schluss „keine erneute Freigabe nötig" war falsch — das Panel zeigte den
+Freigabe-Bildschirm. Verlass dich für diese Frage auf das Panel, nicht auf einen
+Log-Grep. `looksLikePermissionProblem` in `src/contacts/diagnose.ts` fängt beide
+Formulierungen, weil es auf das Wort `permission` prüft statt auf einen Satz.
+
 ### `asyar link --copy`, nicht das blanke `asyar link`
 
 **QUELLE**, `uri_schemes.rs`. Die Symlink-Variante scheitert im Release-Build:

@@ -24,6 +24,7 @@
       "facetime-audio",
       "sms",
       "imessage",
+      "whatsapp",
       "addressbook",
       "x-apple.systempreferences"
     ]
@@ -40,6 +41,7 @@
         { "title": "FaceTime Audio", "value": "facetime-audio" },
         { "title": "FaceTime Video", "value": "facetime" },
         { "title": "Nachricht senden", "value": "sms" },
+        { "title": "WhatsApp", "value": "whatsapp" },
         { "title": "Nummer kopieren", "value": "copy" }
       ]
     },

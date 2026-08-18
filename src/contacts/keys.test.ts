@@ -46,6 +46,22 @@ describe('intentFor', () => {
     expect(intentFor({ key: 'Enter', metaKey: true, shiftKey: true }, 'call')).toEqual({
       kind: 'open-in-contacts',
     });
+    expect(intentFor({ key: 'Enter', shiftKey: true, altKey: true }, 'call')).toEqual({
+      kind: 'reach',
+      action: 'whatsapp',
+    });
+  });
+
+  it('catches ⇧⌥⏎ before the bare ⌥ branch, so WhatsApp is not Messages', () => {
+    // These two overlap on altKey; order in the switch is what separates them.
+    expect(intentFor({ key: 'Enter', altKey: true }, 'call')).toEqual({
+      kind: 'reach',
+      action: 'sms',
+    });
+    expect(intentFor({ key: 'Enter', altKey: true, shiftKey: true }, 'call')).toEqual({
+      kind: 'reach',
+      action: 'whatsapp',
+    });
   });
 
   it('treats Ctrl as Cmd, so an external keyboard is not a dead end', () => {
