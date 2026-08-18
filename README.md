@@ -143,8 +143,10 @@ Tippen beenden, das die Liste filtert.
 ## Entwicklung
 
 ```bash
-npm run check     # tsc --noEmit && svelte-check
+npm run setup     # einmalig: aktiviert den Pre-Commit-Hook
+npm run check     # tsc --noEmit && svelte-check && check:data
 npm test          # 79 Unit-Tests über die reine Schicht
+npm run check:data # keine echten Rufnummern/Mailadressen im Repo
 npm run build     # vite build + Bundle-Prüfung
 npm run validate  # asyar validate
 ```
@@ -158,6 +160,26 @@ gegen `is_path_allowed()`; die Regel, die beliebige Symlink-Ziele erlauben würd
 steht hinter `#[cfg(debug_assertions)]`. Im Release-Build liefert `view.html`
 darum **403** — sichtbar nur als leeres Panel plus
 `[workerRegistry] unmount … reason=timeout` im Log.
+
+### Keine echten Personendaten im Repository
+
+`scripts/check-no-personal-data.mjs` läuft vor jedem Build und in jedem Commit
+(`.githooks/pre-commit`, aktiviert durch `npm run setup`). Er bricht ab, sobald
+irgendwo eine telefonnummer- oder mailadressenförmige Zeichenkette auftaucht,
+die nicht ausdrücklich als erfunden eingetragen ist.
+
+Es ist bewusst eine **Allowlist**: eine Denylist müsste wissen, welche Nummern
+echt sind, und das kann sie nicht. Eine neue Testnummer aufzunehmen ist damit
+eine bewusste Handlung.
+
+Der Anlass war ein echter Fehler — beim Entwickeln lag es nahe, einen Ausschnitt
+des eigenen Adressbuchs als Fixture zu nehmen, und so landeten Namen und
+Rufnummern Dritter in Tests und in einem Commit. Aufgefallen ist das erst beim
+Veröffentlichen. Für eine Erweiterung, die Adressbücher liest, ist das die
+naheliegendste Art, Schaden anzurichten, also wird sie geprüft statt beachtet.
+
+Für Namen gibt es keine Prüfung, nur die Regel: Max/Erika Mustermann, Lieschen
+Müller, Musterfirma GmbH.
 
 `scripts/check-bundle.mjs` läuft nach jedem Build und prüft die eine Sache, die
 still kaputtgehen kann: `view.ts` und `worker.ts` teilen sich Module, also gibt

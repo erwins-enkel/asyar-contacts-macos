@@ -1,0 +1,9 @@
+#!/bin/sh
+# Letzte Verteidigungslinie gegen echte Personendaten im Repository.
+#
+# Der Fehler, der diesen Hook nötig gemacht hat, war ein Commit — nicht ein
+# fehlgeschlagener Build. Also greift die Prüfung hier, bevor irgendetwas in
+# die History kommt, aus der sie sich nur noch mit Rewrite entfernen ließe.
+#
+# Einmalig zu aktivieren:  git config core.hooksPath .githooks
+exec node scripts/check-no-personal-data.mjs

@@ -5,12 +5,14 @@
   "type": "module",
   "private": true,
   "scripts": {
-    "build": "vite build && node scripts/check-bundle.mjs",
-    "check": "tsc --noEmit && svelte-check --threshold error",
+    "build": "npm run check:data && vite build && node scripts/check-bundle.mjs",
+    "check": "tsc --noEmit && svelte-check --threshold error && npm run check:data",
     "validate": "asyar validate",
     "link": "asyar link --copy",
     "test": "vitest run",
-    "test:watch": "vitest"
+    "test:watch": "vitest",
+    "check:data": "node scripts/check-no-personal-data.mjs",
+    "setup": "git config core.hooksPath .githooks"
   },
   "dependencies": {
     "svelte": "^5.0.0"
