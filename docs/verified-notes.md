@@ -201,6 +201,62 @@ if d.get('trigger'): d['trigger'] = d['name']   # trigger folgt per Default dem 
 **BELEGT:** so gesetzt übersteht der neue Name den Neustart, und `usageCount`
 bleibt stehen.
 
+### ⌘K-Aktionen lecken in fremde Extension-Panels
+
+**BELEGT** durch Beobachtung (die Kontakt-Aktionen „Anrufen", „FaceTime",
+„WhatsApp" … erschienen im ⌘K-Drawer der **Scripts**-View), erklärt durch
+**QUELLE**. Zwei Dinge kommen zusammen:
+
+**1. Der Host filtert den Drawer allein nach Kontext.**
+`filterActionsByContext` in `services/action/actionService.svelte.ts` vergleicht
+`action.context === this.currentContext` und sonst nichts.
+`ActionContext.EXTENSION_VIEW` heißt damit „irgendein Extension-Panel ist
+offen", nicht „*dieses* Panel ist offen". Eine Zuordnung zur besitzenden
+Erweiterung gibt es nicht, und das `visible`-Prädikat, das die Funktion
+zusätzlich auswertet, ist hostseitig — `ExtensionAction` im SDK hat kein solches
+Feld, und eine Funktion überlebt `postMessage` ohnehin nicht.
+
+**2. Der Host räumt nur beim Weg zurück zur Wurzel auf.**
+`selectionEffects.svelte.ts`, Effekt 7:
+
+```ts
+if (state.lastActiveViewId !== null && currentView === null) {
+  actionService.clearActionsForExtension(state.lastActiveViewId.split('/')[0]);
+}
+```
+
+Ein direkter Wechsel Panel A → Panel B führt nie über `null`, also wird nichts
+geräumt. **Das ist ein Fehler in Asyar**, kein Verhalten, das eine Erweiterung
+umgehen können müsste. Die naheliegende Korrektur wäre, auf den Wechsel der
+Erweiterung zu prüfen statt auf `null`:
+
+```ts
+const before = state.lastActiveViewId?.split('/')[0] ?? null;
+const now = currentView?.split('/')[0] ?? null;
+if (before !== null && before !== now) actionService.clearActionsForExtension(before);
+```
+
+**Und `onDestroy` rettet einen nicht.** `ExtensionViewContainer.svelte` umgibt
+`ExtensionIframe` mit `{#key extensionId}`; beim Wechsel wird das Iframe
+zerstört, nicht sauber unmountet. Der JS-Kontext endet einfach, also läuft weder
+`onDestroy` noch ein `$effect`-Cleanup.
+
+Was einer Erweiterung bleibt, ist `pagehide`: es feuert, solange der Frame noch
+posten kann, und das Elternfenster überlebt uns. Genau dort meldet
+`ContactsView.svelte` seine Aktionen ab.
+
+**Nicht verifiziert:** dass dieser `pagehide`-Weg den Leak tatsächlich schließt.
+Der Leak ließ sich per Skript nicht zuverlässig auslösen — das Launcher-Fenster
+verbirgt sich nach einem Deeplink, und ein zweiter Deeplink wechselt die View
+dann nicht mehr. Der Handgriff dafür: Kontakte-Panel öffnen, ohne Umweg über die
+Wurzel in ein anderes Extension-Panel wechseln, dort ⌘K drücken.
+
+**Es gibt kein Deaktivierungs-Signal ins Iframe.** Der Host sendet an eine View
+genau drei Nachrichtentypen — `asyar:view:search`, `asyar:view:submit`,
+`asyar:view:keydown`. Kein `viewDeactivated`, kein `onHide`. Das
+`context.onHide(...)` aus dem ShellService-Beispiel der Doku existiert im SDK
+nicht.
+
 ### Befehle lassen sich nicht aus der Suche ausblenden
 
 **QUELLE**, `ExtensionCommand` in `extensions/mod.rs`. Es gibt kein `hidden`,

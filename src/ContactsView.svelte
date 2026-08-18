@@ -482,8 +482,32 @@
     };
   });
 
-  // ⌘K drawer. Registered for as long as the panel is mounted and torn down
-  // with it — leftover actions would follow the user into unrelated views.
+  // ⌘K drawer.
+  //
+  // Tearing these down is harder than it looks, and getting it wrong is
+  // visible: the actions show up in *other* extensions' panels. Two things
+  // conspire.
+  //
+  //   1. The host filters the drawer by context alone.
+  //      `filterActionsByContext` in the launcher's actionService compares
+  //      `action.context === currentContext` and nothing else — so
+  //      `ActionContext.EXTENSION_VIEW` means "some extension panel is open",
+  //      not "*this* panel is open". There is no per-extension scoping to opt
+  //      into, and the `visible` predicate the host consults is host-side only.
+  //
+  //   2. The host only cleans up on the way back to the root.
+  //      `selectionEffects` calls `clearActionsForExtension` under
+  //      `currentView === null`. Navigating straight from this panel to
+  //      another extension's panel never passes through null, so nothing is
+  //      cleared.
+  //
+  // A Svelte `onDestroy` does not save us either: switching views destroys the
+  // whole iframe (`{#key extensionId}` around `ExtensionIframe`), so this
+  // component is never gracefully unmounted — its JS context simply ends.
+  //
+  // Hence `pagehide`: it fires while the frame is still alive enough to post a
+  // message, and the parent window that receives it outlives us. That is the
+  // one moment where the teardown can still be announced.
   $effect(() => {
     const actions: ExtensionAction[] = [
       {
@@ -595,9 +619,21 @@
       },
     ];
 
-    for (const action of actions) context.registerAction(action);
-    return () => {
+    let dropped = false;
+    const drop = (): void => {
+      if (dropped) return;
+      dropped = true;
       for (const action of actions) context.unregisterAction(action.id);
+    };
+
+    for (const action of actions) context.registerAction(action);
+
+    // `pagehide` covers the iframe being torn down on a view switch;
+    // the returned cleanup covers an ordinary re-render of this effect.
+    window.addEventListener('pagehide', drop);
+    return () => {
+      window.removeEventListener('pagehide', drop);
+      drop();
     };
   });
 
