@@ -1,98 +1,104 @@
-# Verifizierte Erkenntnisse
+# Verified findings
 
-Was dieses Projekt über Asyar und die macOS-Kontakte tatsächlich weiß, und woher.
+What this project actually knows about Asyar and macOS Contacts, and how it knows it.
 
-**Stand:** 18.08.2026 · Asyar `0.1.1-42` (`/Applications/asyar.app`, `org.asyar.app`) ·
+**As of:** 2026-08-20 · Asyar `0.1.1-42` (`/Applications/asyar.app`, `org.asyar.app`) ·
 `asyar-sdk` 4.7.0 · macOS 26.5.1 · Node 24 · vite 6.4.3 · Svelte 5 · TypeScript 5.
 
-| Marker | Bedeutung |
+| Marker | Meaning |
 | --- | --- |
-| **BELEGT** | Auf diesem Rechner ausgeführt und beobachtet. |
-| **QUELLE** | Aus dem Launcher- oder SDK-Code gelesen, nicht ausgeführt. |
+| **OBSERVED** | Executed on this machine and watched happen. |
+| **SOURCE** | Read out of the launcher or SDK source, not executed. |
 
 ---
 
 ## macOS
 
-### Kontakte lesen: JXA + Contacts-Framework
+### Reading contacts: JXA + the Contacts framework
 
-**BELEGT.** `osascript -l JavaScript -e <skript> list` mit
-`ObjC.import('Contacts')` und `CNContactStore.enumerateContacts` liefert
-**2713 Kontakte in ~3,4 s**. Ohne Memoisierung von
-`CNLabeledValue.localizedStringForLabel` waren es ~4,1 s — dieselben paar Labels
-werden über tausende Datensätze hinweg neu lokalisiert, und jede Auflösung ist
-eine Brückenüberquerung.
+**OBSERVED.** `osascript -l JavaScript -e <script> list` with
+`ObjC.import('Contacts')` and `CNContactStore.enumerateContacts` returns
+**2713 contacts in ~3.4 s**. Without memoising
+`CNLabeledValue.localizedStringForLabel` it was ~4.1 s — the same handful of
+labels gets localised again across thousands of records, and every resolution is
+a bridge crossing.
 
-Fallstricke, alle beim ersten Versuch aufgetreten:
+Pitfalls, all of them hit on the first attempt:
 
-- `$.CNContactStore.authorizationStatusForEntityType(...)` liefert kein JS-`number`.
-  `JSON.stringify` machte `"3"` daraus und `status !== 3` war wahr. `Number(...)`
-  drumherum. Dasselbe gilt für `contact.contactType` und `list.count`.
-- `$.NSArray.arrayWithObjects(a, b, c)` wirft
-  `wrong number of arguments for selector`. Stattdessen ein JS-Array bridgen:
+- `$.CNContactStore.authorizationStatusForEntityType(...)` does not return a JS
+  `number`. `JSON.stringify` turned it into `"3"` and `status !== 3` was true.
+  Wrap it in `Number(...)`. The same goes for `contact.contactType` and
+  `list.count`.
+- `$.NSArray.arrayWithObjects(a, b, c)` throws
+  `wrong number of arguments for selector`. Bridge a JS array instead:
   `$(['givenName', 'familyName', …])`.
-- Die Keys sind schlicht die Property-Namen (`ObjC.unwrap($.CNContactGivenNameKey)`
-  → `"givenName"`), String-Literale funktionieren also genauso.
+- The keys are simply the property names
+  (`ObjC.unwrap($.CNContactGivenNameKey)` → `"givenName"`), so string literals
+  work just as well.
 
-Die Alternative — AppleScript gegen Contacts.app — wurde nicht genommen: sie
-startet die App, löst einen Automation-Dialog aus und ist um Größenordnungen
-langsamer.
+The alternative — AppleScript against Contacts.app — was not taken: it launches
+the app, triggers an Automation prompt, and is orders of magnitude slower.
 
-### TCC: Asyar bekommt die Kontaktfreigabe
+### TCC: Asyar does get the contacts grant
 
-**BELEGT.** `/Applications/asyar.app/Contents/Info.plist` enthält **kein**
-`NSContactsUsageDescription` — das war das größte offene Risiko dieses Projekts,
-weil ein fehlender Usage-String die Systemabfrage normalerweise verhindert.
+**OBSERVED.** `/Applications/asyar.app/Contents/Info.plist` contains **no**
+`NSContactsUsageDescription` — this was the largest open risk in the project,
+because a missing usage string normally prevents the system prompt entirely.
 
-Trotzdem funktioniert es: nach dem ersten Lesevorgang aus dem Panel steht in
-`~/Library/Application Support/com.apple.TCC/TCC.db`
+It works anyway: after the first read from the panel,
+`~/Library/Application Support/com.apple.TCC/TCC.db` holds
 
 ```
-kTCCServiceAddressBook|org.asyar.app|2      -- 2 = erlaubt
+kTCCServiceAddressBook|org.asyar.app|2      -- 2 = allowed
 ```
 
-Die Freigabe wird also dem verantwortlichen Prozess (Asyar) zugeschrieben, nicht
-dem gespawnten `osascript`. Sollte das auf einem anderen System scheitern, wäre
-der saubere Fix, `NSContactsUsageDescription` upstream in Asyars `tauri.conf`
-aufzunehmen.
+The grant is therefore attributed to the responsible process (Asyar), not to the
+spawned `osascript`. Should this fail on another system, the clean fix would be
+to add `NSContactsUsageDescription` upstream in Asyar's `tauri.conf`.
 
-### URL-Schemata auf macOS 26
+### URL schemes on macOS 26
 
-**BELEGT** über `NSWorkspace.URLForApplicationToOpenURL`:
+**OBSERVED** via `NSWorkspace.URLForApplicationToOpenURL`:
 
-| Schema | Handler |
+| Scheme | Handler |
 | --- | --- |
-| `tel:` | **Phone.app** — führt den Anruf über das gekoppelte iPhone |
+| `tel:` | **Phone.app** — routes the call through the paired iPhone |
 | `facetime-audio:` | Phone.app |
 | `facetime:` | FaceTime.app |
 | `sms:` / `imessage:` | Messages.app |
+| `whatsapp:` | WhatsApp.app |
 | `addressbook:` | Contacts.app |
 | `x-apple.systempreferences:` | System Settings.app |
 
-**BELEGT** über den laufenden Launcher: Enter auf einem markierten Kontakt öffnet
-`tel:` und der Anruf läuft — sichtbar als „mit deinem iPhone" im Anruf-Overlay.
+**OBSERVED** on the running launcher: Enter on a highlighted contact opens `tel:`
+and the call connects — visible as “with your iPhone” in the call overlay.
 
-`addressbook://<uuid>:ABPerson` muss **unkodiert** bleiben. Mit
-prozentkodiertem Doppelpunkt nimmt LaunchServices die URL zwar an, Contacts.app
-löst sie aber nicht zu einer Person auf.
+`addressbook://<uuid>:ABPerson` must stay **unencoded**. With a percent-encoded
+colon LaunchServices still accepts the URL, but Contacts.app does not resolve it
+to a person.
+
+**WhatsApp is the odd one out.** `whatsapp://send?phone=` wants bare E.164 digits
+**without** a leading `+`; the app puts it back itself. **OBSERVED:** passing
+`490000000000` made WhatsApp report that “+490000000000” is not registered. The
+consequence is a real constraint — a nationally stored number has nothing safe to
+send, so `whatsappUrl()` refuses rather than guessing.
 
 ---
 
 ## Asyar
 
-> **Zur ID in den Log-Zitaten unten.** Die Erweiterung hieß während dieser
-> Beobachtungen `blog.osthoff.contacts` und heißt inzwischen
-> `dev.erwins-enkel.contacts`. Die Zitate bleiben wörtlich stehen — eine
-> Logzeile umzuschreiben, die so nie ausgegeben wurde, wäre der schlechtere
-> Tausch gegen etwas Kosmetik.
+> **On the extension ID in the log quotes below.** During these observations the
+> extension was called `blog.osthoff.contacts`; it is now
+> `dev.erwins-enkel.contacts`. The quotes stay verbatim — rewriting a log line
+> that was never emitted that way would be the worse trade for a little tidiness.
 
-### `searchable: true` ist das, was die Suchleiste ans Panel hängt
+### `searchable: true` is what attaches the search bar to the panel
 
-**BELEGT**, erklärt durch **QUELLE**. Ohne das Flag bleibt Asyars Suchfeld bei
-geöffnetem View unbenutzbar („Press Escape to go back") und das Panel bekommt
-nie eine Anfrage.
+**OBSERVED**, explained by **SOURCE**. Without the flag Asyar's search field stays
+unusable while a view is open (“Press Escape to go back”) and the panel never
+receives a query.
 
-Der Pfad ist `searchController.svelte.ts` Effekt 5:
+The path is `searchController.svelte.ts`, effect 5:
 
 ```ts
 } else if (state.activeViewVal && state.activeViewSearchableVal && …) {
@@ -100,124 +106,120 @@ Der Pfad ist `searchController.svelte.ts` Effekt 5:
 }
 ```
 
-und `activeViewSearchableVal` kommt aus `viewManager.navigateTo`:
-`searchable: manifest.searchable ?? false`. `handleViewSearch` selbst prüft
-nichts weiter — das Flag ist das ganze Tor.
+and `activeViewSearchableVal` comes from `viewManager.navigateTo`:
+`searchable: manifest.searchable ?? false`. `handleViewSearch` itself checks
+nothing further — the flag is the entire gate.
 
-**Nebenwirkung, geprüft und harmlos:** `searchable: true` lässt den Launcher auch
-Root-Suchanfragen als `asyar:search:request` an den Worker schicken. Hat die
-registrierte Implementierung keine `search()`-Methode, antwortet die
-`ExtensionBridge` des SDK sofort mit `[]` (**QUELLE**,
-`ExtensionBridge.js` Zeile ~185). Kein Hänger, kein Timeout.
+**Side effect, checked and harmless:** `searchable: true` also makes the launcher
+send root-search queries to the worker as `asyar:search:request`. If the
+registered implementation has no `search()` method, the SDK's `ExtensionBridge`
+answers immediately with `[]` (**SOURCE**, `ExtensionBridge.js` around line 185).
+No hang, no timeout.
 
-### Berechtigungen werden komplett zurückgehalten, bis sie bestätigt sind
+### Permissions are withheld wholesale until they are approved
 
-**BELEGT.** Eine frisch verlinkte Erweiterung hat keinen Consent-Eintrag, und
-Rust registriert sie dann mit **null** Berechtigungen — nicht etwa nur ohne die
-neue. Sichtbar wurde das als:
+**OBSERVED.** A freshly linked extension has no consent record, and Rust then
+registers it with **zero** permissions — not merely without the new one. It
+surfaced as:
 
-- `context.preferences.refresh()` rejected,
-- `shell.spawn()` meldete `SPAWN_FAILED`,
-- der Launcher zeigte „blog.osthoff.contacts promise was rejected".
+- `context.preferences.refresh()` rejecting,
+- `shell.spawn()` reporting `SPAWN_FAILED`,
+- the launcher showing “blog.osthoff.contacts promise was rejected”.
 
-Keine dieser Meldungen sagt „bestätige die Berechtigungen", was das Einzige ist,
-das hilft. Deshalb gibt es `src/contacts/diagnose.ts`: es erkennt die Wortlaute
-und zeigt stattdessen den Weg (Einstellungen → Extensions → Kontakte →
-Berechtigungen bestätigen).
+None of those messages says “approve the permissions”, which is the only thing
+that helps. Hence `src/contacts/diagnose.ts`: it recognises the wordings and
+shows the route instead (Settings → Extensions → Contacts → approve).
 
-Zwei Bugs kamen mit derselben Ursache ans Licht und sind gefixt:
+Two bugs surfaced from the same cause and are fixed:
 
-1. `boot()` hatte keine Fehlergrenze. Eine abgelehnte Promise wurde nie
-   gefangen, das Panel blieb für immer beim Spinner.
-2. `preferences.refresh()` wurde ungeschützt awaited. Es fällt jetzt auf die
-   Defaults zurück — eine vollständige, funktionierende Konfiguration.
+1. `boot()` had no error boundary. A rejected promise was never caught and the
+   panel sat on its spinner forever.
+2. `preferences.refresh()` was awaited unguarded. It now falls back to the
+   defaults — a complete, working configuration.
 
-Nach der Bestätigung stand in `asyar_data.db`:
+After approval, `asyar_data.db` held:
 
 ```
 shell_trusted_binaries: blog.osthoff.contacts | /usr/bin/osascript
 ```
 
-Das Binary ist im Manifest unter `permissionArgs["shell:spawn"]` deklariert,
-damit es im Consent-Dialog erscheint, statt später unvermittelt aus dem
-Hintergrund-Worker zu fragen.
+The binary is declared under `permissionArgs["shell:spawn"]` so it appears in the
+consent dialog instead of asking later, unannounced, from the background worker.
 
-**Auch `permissionArgs` allein löst den Gate erneut aus.** **BELEGT:** das
-Hinzufügen von `whatsapp` zu `permissionArgs["shell:open-url"]` — ohne jede
-Änderung an der `permissions`-Liste — setzte die Erweiterung wieder auf null
-Berechtigungen zurück. Das ist konsequent, denn die Args erweitern den Umfang;
-aber es heißt, dass jede neue URL-Schema-Freigabe einen Gang in die
-Einstellungen kostet.
+**`permissionArgs` alone re-triggers the gate too.** **OBSERVED:** adding
+`whatsapp` to `permissionArgs["shell:open-url"]` — with no change at all to the
+`permissions` list — put the extension back to zero permissions. That is
+consistent, since the args widen the scope; but it means every new URL-scheme
+grant costs a trip to Settings.
 
-**Der Wortlaut im Log ist nicht stabil.** Beim ersten Mal war es
-*„Withholding permission registration … declared permissions exceed recorded
-consent"*, beim zweiten Mal:
+**The wording in the log is not stable.** The first time it was *“Withholding
+permission registration … declared permissions exceed recorded consent”*, the
+second time:
 
 ```
 [PermissionGate] BLOCKED: Extension "blog.osthoff.contacts" is not registered
 in the permission registry.
 ```
 
-Nach der ersten Formulierung zu grepen ergab beim zweiten Mal nichts, und der
-Schluss „keine erneute Freigabe nötig" war falsch — das Panel zeigte den
-Freigabe-Bildschirm. Verlass dich für diese Frage auf das Panel, nicht auf einen
-Log-Grep. `looksLikePermissionProblem` in `src/contacts/diagnose.ts` fängt beide
-Formulierungen, weil es auf das Wort `permission` prüft statt auf einen Satz.
+Grepping for the first phrasing found nothing the second time, and the conclusion
+“no re-approval needed” was wrong — the panel was showing the approval screen.
+Trust the panel for this question, not a log grep. `looksLikePermissionProblem`
+in `src/contacts/diagnose.ts` catches both wordings because it tests for the word
+`permission` rather than for a sentence.
 
-### `asyar link --copy`, nicht das blanke `asyar link`
+### `asyar link --copy`, not the bare `asyar link`
 
-**QUELLE**, `uri_schemes.rs`. Die Symlink-Variante scheitert im Release-Build:
-der Scheme-Handler kanonisiert den Treffer und prüft ihn gegen
-`is_path_allowed()`; die Regel für beliebige Symlink-Ziele steht hinter
-`#[cfg(debug_assertions)]`. Ergebnis wäre **403** für `view.html` — sichtbar nur
-als leeres Panel und `[workerRegistry] unmount … reason=timeout` im Log.
+**SOURCE**, `uri_schemes.rs`. The symlink variant fails on a release build: the
+scheme handler canonicalises the hit and checks it against `is_path_allowed()`;
+the rule for arbitrary symlink targets sits behind `#[cfg(debug_assertions)]`.
+The result would be **403** for `view.html` — visible only as an empty panel and
+`[workerRegistry] unmount … reason=timeout` in the log.
 
-### Ein umbenannter Befehl behält seinen alten Namen in der Suche
+### A renamed command keeps its old name in search
 
-**BELEGT.** Der Launcher hält jeden Befehl in `search_index.db` (Tabelle
-`search_items`, eine JSON-Spalte `data` pro Zeile, Schlüssel
-`cmd_<extensionId>_<commandId>`) und schreibt den `name` beim Registrieren
-**nicht** neu. Nach `manifest.json` → `link --copy` → Neustart stand dort
-weiterhin:
+**OBSERVED.** The launcher keeps every command in `search_index.db` (table
+`search_items`, one JSON column `data` per row, key
+`cmd_<extensionId>_<commandId>`) and does **not** rewrite `name` on
+registration. After editing `manifest.json`, running `link --copy` and
+restarting, it still read:
 
 ```json
 {"id":"cmd_blog.osthoff.contacts_contacts","name":"Kontakte","usageCount":7, …}
 ```
 
-Die Zeile trägt auch die Häufigkeitsdaten (`usageCount`, `lastUsedAt`), aus denen
-sich das Ranking speist. Sie einfach zu löschen erzwingt zwar den neuen Namen,
-wirft aber genau diese Daten weg — der Befehl rutschte danach von Platz 1 auf
-Platz 4, hinter macOS' eigene Kontakte.app.
+That row also carries the frecency data (`usageCount`, `lastUsedAt`) the ranking
+feeds on. Simply deleting it does force the new name, but throws exactly that
+data away — the command dropped from position 1 to position 4, behind macOS' own
+Contacts.app.
 
-**Der richtige Weg** ist, das JSON an Ort und Stelle zu aktualisieren, bei
-beendetem Launcher (im laufenden Betrieb überschreibt Asyar die Zeile wieder):
+**The right way** is to update the JSON in place, with the launcher stopped (a
+running Asyar rewrites the row again):
 
 ```python
 d = json.loads(row['data'])
-d['name'] = 'Neuer Name'
-if d.get('trigger'): d['trigger'] = d['name']   # trigger folgt per Default dem Namen
+d['name'] = 'New name'
+if d.get('trigger'): d['trigger'] = d['name']   # trigger defaults to the name
 ```
 
-**BELEGT:** so gesetzt übersteht der neue Name den Neustart, und `usageCount`
-bleibt stehen.
+**OBSERVED:** set that way, the new name survives a restart and `usageCount`
+stays put.
 
-### ⌘K-Aktionen lecken in fremde Extension-Panels
+### ⌘K actions leak into other extensions' panels
 
-**BELEGT** durch Beobachtung (die Kontakt-Aktionen „Anrufen", „FaceTime",
-„WhatsApp" … erschienen im ⌘K-Drawer der **Scripts**-View), erklärt durch
-**QUELLE**. Zwei Dinge kommen zusammen:
+**OBSERVED** (this extension's actions “Call”, “FaceTime”, “WhatsApp” … appeared
+in the ⌘K drawer of the **Scripts** view), explained by **SOURCE**. Two things
+combine:
 
-**1. Der Host filtert den Drawer allein nach Kontext.**
-`filterActionsByContext` in `services/action/actionService.svelte.ts` vergleicht
-`action.context === this.currentContext` und sonst nichts.
-`ActionContext.EXTENSION_VIEW` heißt damit „irgendein Extension-Panel ist
-offen", nicht „*dieses* Panel ist offen". Eine Zuordnung zur besitzenden
-Erweiterung gibt es nicht, und das `visible`-Prädikat, das die Funktion
-zusätzlich auswertet, ist hostseitig — `ExtensionAction` im SDK hat kein solches
-Feld, und eine Funktion überlebt `postMessage` ohnehin nicht.
+**1. The host filters the drawer by context alone.**
+`filterActionsByContext` in `services/action/actionService.svelte.ts` compares
+`action.context === this.currentContext` and nothing else.
+`ActionContext.EXTENSION_VIEW` therefore means “some extension panel is open”,
+not “*this* panel is open”. There is no per-extension scoping, and the `visible`
+predicate the function also consults is host-side — `ExtensionAction` in the SDK
+has no such field, and a function would not survive `postMessage` anyway.
 
-**2. Der Host räumt nur beim Weg zurück zur Wurzel auf.**
-`selectionEffects.svelte.ts`, Effekt 7:
+**2. The host only cleans up on the way back to the root.**
+`selectionEffects.svelte.ts`, effect 7:
 
 ```ts
 if (state.lastActiveViewId !== null && currentView === null) {
@@ -225,10 +227,10 @@ if (state.lastActiveViewId !== null && currentView === null) {
 }
 ```
 
-Ein direkter Wechsel Panel A → Panel B führt nie über `null`, also wird nichts
-geräumt. **Das ist ein Fehler in Asyar**, kein Verhalten, das eine Erweiterung
-umgehen können müsste. Die naheliegende Korrektur wäre, auf den Wechsel der
-Erweiterung zu prüfen statt auf `null`:
+Going straight from panel A to panel B never passes through `null`, so nothing is
+cleared. **This is a bug in Asyar**, not behaviour an extension should have to
+work around. The obvious correction would be to check for a change of extension
+rather than for `null`:
 
 ```ts
 const before = state.lastActiveViewId?.split('/')[0] ?? null;
@@ -236,53 +238,52 @@ const now = currentView?.split('/')[0] ?? null;
 if (before !== null && before !== now) actionService.clearActionsForExtension(before);
 ```
 
-**Und `onDestroy` rettet einen nicht.** `ExtensionViewContainer.svelte` umgibt
-`ExtensionIframe` mit `{#key extensionId}`; beim Wechsel wird das Iframe
-zerstört, nicht sauber unmountet. Der JS-Kontext endet einfach, also läuft weder
-`onDestroy` noch ein `$effect`-Cleanup.
+**And `onDestroy` does not save you.** `ExtensionViewContainer.svelte` wraps
+`ExtensionIframe` in `{#key extensionId}`; on a switch the iframe is destroyed,
+not gracefully unmounted. The JS context simply ends, so neither `onDestroy` nor
+an `$effect` cleanup runs.
 
-Was einer Erweiterung bleibt, ist `pagehide`: es feuert, solange der Frame noch
-posten kann, und das Elternfenster überlebt uns. Genau dort meldet
-`ContactsView.svelte` seine Aktionen ab.
+What remains to an extension is `pagehide`: it fires while the frame can still
+post, and the parent window outlives us. That is where `ContactsView.svelte`
+unregisters its actions.
 
-**BELEGT**, dass dieser `pagehide`-Weg den Leak schließt — von Hand nachgeprüft
-(Kontakte-Panel öffnen, ohne Umweg über die Wurzel in ein anderes
-Extension-Panel wechseln, dort ⌘K: die Kontakt-Aktionen sind weg). Per Skript
-ließ er sich nicht auslösen, weil das Launcher-Fenster sich nach einem Deeplink
-verbirgt und ein zweiter Deeplink die View dann nicht mehr wechselt.
+**OBSERVED** that this `pagehide` route closes the leak — checked by hand (open
+the contacts panel, switch to another extension panel without going back to the
+root, press ⌘K there: the contact actions are gone). It could not be triggered by
+script, because the launcher window hides itself after a deeplink and a second
+deeplink then no longer switches the view.
 
-**Es gibt kein Deaktivierungs-Signal ins Iframe.** Der Host sendet an eine View
-genau drei Nachrichtentypen — `asyar:view:search`, `asyar:view:submit`,
-`asyar:view:keydown`. Kein `viewDeactivated`, kein `onHide`. Das
-`context.onHide(...)` aus dem ShellService-Beispiel der Doku existiert im SDK
-nicht.
+**There is no deactivation signal into the iframe.** The host sends a view
+exactly three message types — `asyar:view:search`, `asyar:view:submit`,
+`asyar:view:keydown`. No `viewDeactivated`, no `onHide`. The `context.onHide(...)`
+from the ShellService example in the docs does not exist in the SDK.
 
-### Befehle lassen sich nicht aus der Suche ausblenden
+### Commands cannot be hidden from search
 
-**QUELLE**, `ExtensionCommand` in `extensions/mod.rs`. Es gibt kein `hidden`,
-kein `excludeFromSearch` — die legalen Felder sind `id`, `name`, `description`,
+**SOURCE**, `ExtensionCommand` in `extensions/mod.rs`. There is no `hidden`, no
+`excludeFromSearch` — the legal fields are `id`, `name`, `description`,
 `trigger`, `mode`, `icon`, `component`, `schedule`, `preferences`, `actions`,
-`arguments`, `requireAnyOf`, `searchBarAccessory`. Jeder deklarierte Befehl
-erscheint in der Root-Suche, auch ein reiner `mode: "background"`-Wartungsbefehl.
+`arguments`, `requireAnyOf`, `searchBarAccessory`. Every declared command shows
+in root search, including a pure `mode: "background"` maintenance command.
 
-Praktische Folge: ein interner Befehl braucht einen Namen, der nicht mit dem
-eigentlichen konkurriert. Der geplante Cache-Refresh hieß erst „Kontakte
-aktualisieren" und rangierte bei der Eingabe `kon` über „Kontakte durchsuchen";
-als „Adressbuch-Cache auffrischen" enthält er kein `kon` mehr und ist aus dem
-Weg, ohne dass der Zeitplan sich ändert.
+Practical consequence: an internal command needs a name that does not compete
+with the real one. Back when this extension shipped a German UI, the scheduled
+cache refresh was called “Kontakte aktualisieren” and outranked the actual
+command “Kontakte durchsuchen” on the input `kon`. Renaming it to “Refresh
+address book cache” put it out of the way, with no change to its schedule.
 
-### `platforms` heißt `macos`, nicht `mac`
+### `platforms` is spelled `macos`, not `mac`
 
-**BELEGT.** Die Tutorials zeigen `"platforms": ["mac"]`. `asyar validate` lehnt
-das ab; gültig sind `macos`, `windows`, `linux` — dieselben Werte, die
-`discovery.rs` und `installer.rs` verwenden.
+**OBSERVED.** The tutorials show `"platforms": ["mac"]`. `asyar validate` rejects
+it; the valid values are `macos`, `windows`, `linux` — the same ones
+`discovery.rs` and `installer.rs` use.
 
-### Nur sechs Tasten erreichen ein offenes Panel
+### Only six keys reach an open panel
 
-**QUELLE**, `launcherKeyboard.ts` `tryRouteToActiveView`, **BELEGT** durch die
-funktionierende Belegung. Solange die Suchleiste den Fokus hat, fängt der
-Launcher `ArrowUp/Down/Left/Right`, `Enter` und `Tab` ab, ruft `preventDefault()`
-und liefert sie als `asyar:view:keydown` nach — **inklusive** der Modifier-Flags:
+**SOURCE**, `launcherKeyboard.ts` `tryRouteToActiveView`, **OBSERVED** through the
+working key map. While the search bar has focus, the launcher intercepts
+`ArrowUp/Down/Left/Right`, `Enter` and `Tab`, calls `preventDefault()` and
+re-delivers them as `asyar:view:keydown` — **including** the modifier flags:
 
 ```ts
 extensionManager.forwardKeyToActiveView({
@@ -290,46 +291,46 @@ extensionManager.forwardKeyToActiveView({
 });
 ```
 
-Darauf beruht die gesamte Tastenbelegung. Modifiziertes Enter ist die einzige
-Möglichkeit, aus einem Panel, in das getippt wird, mehr als eine
-Ein-Tasten-Aktion zu holen. `⌘C` und Ähnliches erreichen das Iframe nur, wenn
-der Fokus per Mausklick schon drin ist.
+The entire key map rests on this. Modified Enter is the only way to get more than
+one single-keystroke action out of a panel that is being typed into. `⌘C` and
+similar only reach the iframe once focus is already inside it, via a mouse click.
 
-Folge: Die Markierung muss reiner Zustand sein. `.focus()` auf einer Zeile nähme
-den Fokus aus der Suchleiste und beendete das Tippen, das die Liste filtert.
+Consequence: the highlight has to be pure state. `.focus()` on a row would take
+focus off the search bar and end the typing that drives the filter.
 
-### Es gibt keinen Opener-Service
+### There is no opener service
 
-**QUELLE** plus **BELEGT** über den laufenden Anruf.
-`ctx.getService('opener')` wirft — `opener` liegt in keiner Proxy-Tasche. Der Weg
-ist `messageBroker.invoke('opener:open', { url })` unter `shell:open-url`.
-`messageBroker` kommt aus `asyar-sdk/contracts` und ist damit auch aus dem Worker
-erreichbar.
+**SOURCE** plus **OBSERVED** through a connected call.
+`ctx.getService('opener')` throws — `opener` is in no proxy bag. The route is
+`messageBroker.invoke('opener:open', { url })` under `shell:open-url`.
+`messageBroker` comes from `asyar-sdk/contracts`, so it is reachable from the
+worker too.
 
-### Manifest-Fallstricke
+### Manifest pitfalls
 
-- Rust liest `ExtensionManifest` mit `#[serde(deny_unknown_fields)]` — ein
-  einziger unbekannter Top-Level-Key lässt die Erkennung scheitern, ohne dass
-  `asyar validate` etwas sagt.
-- `description` muss 10–200 Zeichen haben. Undokumentiert.
-- Manifest-`actions` haben ein `shortcut`-Feld, das **nur angezeigt** wird. Echte
-  Tastenkürzel im Panel muss die Erweiterung selbst behandeln.
-- Registrierungsreihenfolge ist tragend: `registerManifest()` **vor**
-  `registerExtensionImplementation()`, sonst wird die Implementierung
-  kommentarlos verworfen.
+- Rust reads `ExtensionManifest` with `#[serde(deny_unknown_fields)]` — a single
+  unknown top-level key makes discovery fail, without `asyar validate` saying
+  anything.
+- `description` must be 10–200 characters. Undocumented.
+- Manifest `actions` have a `shortcut` field that is **display only**. Real
+  in-panel shortcuts have to be handled by the extension itself.
+- Registration order is load-bearing: `registerManifest()` **before**
+  `registerExtensionImplementation()`, otherwise the implementation is dropped
+  without comment.
 
 ---
 
-## Noch offen
+## Still open
 
-- **Root-Suche.** `enableExtensionSearch` steht auf diesem Rechner auf `true`,
-  eine `search()`-Implementierung im Worker würde Kontakte also direkt in der
-  Hauptsuche zeigen. Der Worker müsste den Index dafür im Speicher halten: die
-  Root-Suche ist auf **200 ms** gedeckelt (**QUELLE**), ein Cache-Lesen pro
-  Tastendruck reicht nicht.
-- **Inkrementelle Aktualisierung.** `CNChangeHistory` würde den 3,4-Sekunden-Lauf
-  auf ein Delta reduzieren. Für den Hintergrund-Refresh alle 30 Minuten bisher
-  nicht nötig.
-- **Zeilen-Deckel.** Das Panel rendert höchstens 200 Zeilen und zeigt an, wie
-  viele es zurückhält. Bei 2713 Kontakten ist Virtualisierung die eigentliche
-  Antwort, falls jemand ungefiltert scrollen will.
+- **Root search.** `enableExtensionSearch` is `true` on this machine, so a
+  `search()` implementation in the worker would surface contacts directly in the
+  main search. The worker would have to hold the index in memory: root search is
+  capped at **200 ms** (**SOURCE**), and one cache read per keystroke does not
+  fit.
+- **Incremental refresh.** `CNChangeHistory` would reduce the 3.4-second run to a
+  delta. Not needed so far for a 30-minute background refresh.
+- **Row cap.** The panel renders at most 200 rows and states how many it is
+  holding back. At 2713 contacts, virtualisation is the real answer if anyone
+  wants to scroll unfiltered.
+- **Telegram.** Installed and registered on this machine (`tg://resolve?phone=`),
+  the same handful of lines as WhatsApp.

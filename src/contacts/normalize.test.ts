@@ -1,9 +1,9 @@
-// Alle Fixtures hier sind erfunden: Max/Erika Mustermann und Lieschen Müller,
-// dazu Rufnummern aus offensichtlichen Ziffernfolgen. Das ist keine Kosmetik —
-// eine Erweiterung, die Adressbücher liest, darf beim Testen keine echten
-// Personen in ihr eigenes Repository tragen. Die *Struktur* der Nummern ist
-// dagegen echt (deutsche Mobilnummer, Festnetz mit Vorwahl, 0049-Schreibweise),
-// denn genau die prüfen die Tests.
+// Every fixture here is invented: Max/Erika Mustermann and Lieschen Müller,
+// Germany's canonical placeholder people, plus numbers built from obvious digit
+// runs. That is not cosmetic — an extension that reads address books must never
+// carry real people into its own repository while testing. The *structure* of
+// the numbers is real (German mobile, landline with area code, the 0049
+// spelling), because that structure is exactly what these tests exercise.
 import { describe, expect, it } from 'vitest';
 import { displayName, normalizeAll, normalizeContact, parsePreferredLabels } from './normalize';
 import type { NormalizeOptions } from './normalize';
@@ -40,13 +40,13 @@ describe('displayName', () => {
   });
 
   it('falls back to a nickname, then to a way of reaching them', () => {
-    expect(displayName(raw({ n: 'Schwiegermutter' }))).toBe('Schwiegermutter');
+    expect(displayName(raw({ n: 'Mother-in-law' }))).toBe('Mother-in-law');
     expect(displayName(raw({ p: [{ l: 'Mobil', v: '0172 1' }] }))).toBe('0172 1');
     expect(displayName(raw({ e: [{ l: '', v: 'a@b.de' }] }))).toBe('a@b.de');
   });
 
   it('never renders a blank row', () => {
-    expect(displayName(raw())).toBe('Ohne Namen');
+    expect(displayName(raw())).toBe('No name');
   });
 });
 
@@ -91,8 +91,8 @@ describe('normalizeContact', () => {
       raw({ g: 'A', p: [{ l: '', v: '030 1' }], e: [{ l: '', v: 'a@b.de' }] }),
       DEFAULTS,
     );
-    expect(contact.phones[0]!.label).toBe('Telefon');
-    expect(contact.emails[0]!.label).toBe('E-Mail');
+    expect(contact.phones[0]!.label).toBe('Phone');
+    expect(contact.emails[0]!.label).toBe('Email');
   });
 
   it('keeps one entry per dialable number, preferring the best-labelled spelling', () => {
@@ -146,7 +146,8 @@ describe('normalizeContact', () => {
     expect(contact.haystack).toContain('+491511234567');
     expect(contact.haystack).toContain('lieschen');
     // The haystack is lowercased, and umlauts have to survive that — typing
-    // "müller" must find a contact stored as "Müller".
+    // "müller" must find a contact stored as "Müller". German address books are
+    // the reason this extension exists, so this is not an edge case.
     expect(contact.haystack).toContain('müller');
   });
 });

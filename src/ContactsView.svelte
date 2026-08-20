@@ -253,7 +253,7 @@
       show(diagnoseFailure({ kind: 'not-authorized', auth }));
       if (auth === AUTH.denied) {
         statusDetail =
-          'Der Zugriff wurde abgelehnt. Er lässt sich nur noch in den Systemeinstellungen wieder erlauben.';
+          'Access was denied. It can now only be granted again in System Settings.';
       }
     } catch (error) {
       show(diagnoseError(error));
@@ -294,7 +294,7 @@
       });
       showNotice(confirmation);
     } catch {
-      showNotice('Kopieren hat nicht geklappt.');
+      showNotice("Couldn't copy that.");
     }
   }
 
@@ -317,21 +317,21 @@
       const address = contact.emails[0]?.address;
       const url = address === undefined ? null : mailUrl(address);
       if (url === null) {
-        showNotice(`${contact.name} hat keine E-Mail-Adresse.`);
+        showNotice(`${contact.name} has no email address.`);
         return;
       }
-      await launch(url, 'Die Mail-App ließ sich nicht öffnen.');
+      await launch(url, "Couldn't open the mail app.");
       return;
     }
 
     const phone = activePhone;
     if (phone === null) {
-      showNotice(`${contact.name} hat keine Rufnummer.`);
+      showNotice(`${contact.name} has no phone number.`);
       return;
     }
 
     if (action === 'copy') {
-      await copyToClipboard(phone.dial, `${phone.dial} kopiert.`);
+      await copyToClipboard(phone.dial, `Copied ${phone.dial}.`);
       return;
     }
 
@@ -341,12 +341,12 @@
       // bare E.164 digits, so a nationally-stored number has nothing to send.
       showNotice(
         action === 'whatsapp'
-          ? `${phone.display} hat keine Landesvorwahl. WhatsApp braucht sie — trag sie unter Einstellungen → Landesvorwahl ein.`
-          : 'Diese Nummer lässt sich nicht wählen.',
+          ? `${phone.display} has no country code. WhatsApp needs one — set it under Settings → Country code.`
+          : 'That number cannot be dialled.',
       );
       return;
     }
-    await launch(url, `${url.split(':')[0]}: ließ sich nicht öffnen.`);
+    await launch(url, `Couldn't open ${url.split(':')[0]}:.`);
   }
 
   async function openInContacts(): Promise<void> {
@@ -354,10 +354,10 @@
     if (contact === null) return;
     const url = addressBookUrl(contact.id);
     if (url === null) {
-      showNotice('Dieser Eintrag hat keine gültige Kontakte-Kennung.');
+      showNotice('This entry has no valid Contacts identifier.');
       return;
     }
-    await launch(url, 'Die Kontakte-App ließ sich nicht öffnen.');
+    await launch(url, "Couldn't open the Contacts app.");
   }
 
   function applyIntent(intent: Intent): void {
@@ -512,8 +512,8 @@
     const actions: ExtensionAction[] = [
       {
         id: 'call',
-        title: 'Anrufen',
-        description: 'Wählt die markierte Nummer ueber Telefon und iPhone.',
+        title: 'Call',
+        description: 'Dials the highlighted number through Phone and your iPhone.',
         icon: '📞',
         shortcut: '⏎',
         extensionId,
@@ -542,7 +542,7 @@
       },
       {
         id: 'sms',
-        title: 'Nachricht senden',
+        title: 'Send a message',
         icon: '💬',
         shortcut: '⌥⏎',
         extensionId,
@@ -553,7 +553,7 @@
       {
         id: 'whatsapp',
         title: 'WhatsApp',
-        description: 'Öffnet den Chat zur markierten Nummer. Braucht eine Nummer mit Landesvorwahl.',
+        description: 'Opens the chat for the highlighted number. Needs a number with a country code.',
         icon: '🟢',
         shortcut: '⇧⌥⏎',
         extensionId,
@@ -563,7 +563,7 @@
       },
       {
         id: 'email',
-        title: 'E-Mail schreiben',
+        title: 'Write an email',
         icon: '✉️',
         shortcut: '⌥⌘⏎',
         extensionId,
@@ -573,7 +573,7 @@
       },
       {
         id: 'copy-number',
-        title: 'Nummer kopieren',
+        title: 'Copy the number',
         icon: '📋',
         shortcut: '⇧⏎',
         extensionId,
@@ -583,7 +583,7 @@
       },
       {
         id: 'copy-email',
-        title: 'E-Mail-Adresse kopieren',
+        title: 'Copy the email address',
         icon: '📋',
         extensionId,
         category: ActionCategory.SHARE,
@@ -591,15 +591,15 @@
         execute: async () => {
           const address = selected?.emails[0]?.address;
           if (address === undefined) {
-            showNotice('Dieser Kontakt hat keine E-Mail-Adresse.');
+            showNotice('This contact has no email address.');
             return;
           }
-          await copyToClipboard(address, `${address} kopiert.`);
+          await copyToClipboard(address, `Copied ${address}.`);
         },
       },
       {
         id: 'open-in-contacts',
-        title: 'In Kontakte öffnen',
+        title: 'Open in Contacts',
         icon: '📇',
         shortcut: '⇧⌘⏎',
         extensionId,
@@ -609,8 +609,8 @@
       },
       {
         id: 'reload',
-        title: 'Kontakte neu laden',
-        description: 'Verwirft den Cache und liest die macOS-Kontakte neu ein.',
+        title: 'Reload contacts',
+        description: 'Discards the cache and reads the macOS address book again.',
         icon: '🔄',
         extensionId,
         category: ActionCategory.PRIMARY,
@@ -662,11 +662,11 @@
   function freshness(at: number | null): string {
     if (at === null) return '';
     const minutes = Math.floor((Date.now() - at) / 60000);
-    if (minutes < 1) return 'gerade eben aktualisiert';
-    if (minutes < 60) return `vor ${minutes} min aktualisiert`;
+    if (minutes < 1) return 'updated just now';
+    if (minutes < 60) return `updated ${minutes} min ago`;
     const hours = Math.floor(minutes / 60);
-    if (hours < 24) return `vor ${hours} h aktualisiert`;
-    return `vor ${Math.floor(hours / 24)} d aktualisiert`;
+    if (hours < 24) return `updated ${hours} h ago`;
+    return `updated ${Math.floor(hours / 24)} d ago`;
   }
 
   // `boot()` owns its own error boundary, so this cannot become an unhandled
@@ -681,48 +681,48 @@
   {#if status === 'loading'}
     <div class="centered">
       <div class="spinner" aria-hidden="true"></div>
-      <p class="lead">Kontakte werden gelesen …</p>
-      <p class="muted">Beim ersten Mal dauert das ein paar Sekunden.</p>
+      <p class="lead">Reading contacts …</p>
+      <p class="muted">The first run takes a few seconds.</p>
     </div>
   {:else if status === 'permissions'}
     <div class="centered">
       <p class="glyph" aria-hidden="true">🛡️</p>
-      <p class="lead">Diese Erweiterung wartet auf deine Freigabe</p>
+      <p class="lead">This extension is waiting for your approval</p>
       <p class="muted">
-        Asyar hält alle Berechtigungen einer Erweiterung zurück, bis du sie einmal bestätigt
-        hast — auch die, die nichts mit dem gerade fehlgeschlagenen Aufruf zu tun haben.
+        Asyar withholds every permission an extension declares until you have approved them
+        once — including the ones that have nothing to do with the call that just failed.
       </p>
       <p class="muted steps">{statusDetail}</p>
       <div class="buttons">
-        <button class="primary" onclick={() => boot()}>Erneut versuchen</button>
+        <button class="primary" onclick={() => boot()}>Try again</button>
       </div>
     </div>
   {:else if status === 'denied'}
     <div class="centered">
       <p class="glyph" aria-hidden="true">🔒</p>
-      <p class="lead">Asyar hat keinen Zugriff auf deine Kontakte</p>
+      <p class="lead">Asyar has no access to your contacts</p>
       <p class="muted">{statusDetail}</p>
       <div class="buttons">
-        <button class="primary" onclick={() => grantAccess()}>Zugriff anfordern</button>
-        <button onclick={() => launch(SYSTEM_SETTINGS_CONTACTS, 'Systemeinstellungen ließen sich nicht öffnen.')}>
-          Systemeinstellungen öffnen
+        <button class="primary" onclick={() => grantAccess()}>Request access</button>
+        <button onclick={() => launch(SYSTEM_SETTINGS_CONTACTS, "Couldn't open System Settings.")}>
+          Open System Settings
         </button>
       </div>
     </div>
   {:else if status === 'error'}
     <div class="centered">
       <p class="glyph" aria-hidden="true">⚠️</p>
-      <p class="lead">Die Kontakte ließen sich nicht lesen</p>
+      <p class="lead">The contacts could not be read</p>
       <p class="muted">{statusDetail}</p>
       <div class="buttons">
-        <button class="primary" onclick={() => refresh(false)}>Erneut versuchen</button>
+        <button class="primary" onclick={() => refresh(false)}>Try again</button>
       </div>
     </div>
   {:else}
     <div class="body">
       <div class="list" bind:this={containerEl}>
         {#if rows.length === 0}
-          <p class="empty">Kein Kontakt passt zu „{query}“.</p>
+          <p class="empty">No contact matches “{query}”.</p>
         {:else}
           {#each rows as contact (contact.id)}
             <button
@@ -741,7 +741,7 @@
                 {/if}
               </span>
               {#if contact.phones.length > 0}
-                <span class="row-badge" title="Rufnummern">
+                <span class="row-badge" title="Phone numbers">
                   {contact.phones.length > 1 ? `📞 ${contact.phones.length}` : '📞'}
                 </span>
               {/if}
@@ -749,7 +749,7 @@
           {/each}
           {#if hiddenCount > 0}
             <p class="more">
-              … und {hiddenCount} weitere. Tippe weiter, um die Liste einzugrenzen.
+              … and {hiddenCount} more. Keep typing to narrow the list.
             </p>
           {/if}
         {/if}
@@ -757,7 +757,7 @@
 
       <aside class="detail">
         {#if selected === null}
-          <p class="empty">Kein Kontakt markiert.</p>
+          <p class="empty">No contact highlighted.</p>
         {:else}
           <div class="detail-head">
             {#if photo !== null}
@@ -772,7 +772,7 @@
           </div>
 
           {#if selected.phones.length > 0}
-            <p class="section-label">Rufnummern</p>
+            <p class="section-label">Phone numbers</p>
             <ul class="values">
               {#each selected.phones as phone, index (phone.dial + index)}
                 <li>
@@ -792,11 +792,11 @@
               {/each}
             </ul>
           {:else}
-            <p class="muted">Keine Rufnummer hinterlegt.</p>
+            <p class="muted">No phone number on file.</p>
           {/if}
 
           {#if selected.emails.length > 0}
-            <p class="section-label">E-Mail</p>
+            <p class="section-label">Email</p>
             <ul class="values">
               {#each selected.emails as mail, index (mail.address + index)}
                 <li>
@@ -823,8 +823,8 @@
           <span class="notice">{notice}</span>
         {:else}
           <span class="muted">
-            {matched.length} von {contacts.length}
-            {#if refreshing}· aktualisiert …{:else if indexedAt !== null}· {freshness(indexedAt)}{/if}
+            {matched.length} of {contacts.length}
+            {#if refreshing}· refreshing …{:else if indexedAt !== null}· {freshness(indexedAt)}{/if}
           </span>
         {/if}
       </div>

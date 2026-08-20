@@ -30,7 +30,8 @@ export type Diagnosis =
 const PERMISSION_HINTS = [
   'permission',
   'not declared',
-  'berechtigung',
+  'berechtigung', // the launcher is localised in places
+
   'denied',
   'consent',
 ];
@@ -41,7 +42,7 @@ export function looksLikePermissionProblem(message: string): boolean {
 }
 
 const REVIEW_STEPS =
-  'Asyar öffnen → Einstellungen (⌘,) → Extensions → „Kontakte“ auswählen → Berechtigungen prüfen und bestätigen.';
+  'Open Asyar → Settings (⌘,) → Extensions → select "Contacts" → review and approve the permissions.';
 
 /** The message for a rejection that arrived as a plain `Error`, i.e. from an
  *  SDK call that is not `ShellService` — `preferences.refresh()` above all. */
@@ -59,7 +60,7 @@ export function diagnoseFailure(failure: HelperFailure): Diagnosis {
       return {
         kind: 'contacts-access',
         detail:
-          'macOS gibt das Adressbuch nur nach ausdrücklicher Freigabe heraus. Diese Erweiterung liest ausschließlich lokal und schickt nichts ins Netz.',
+          'macOS only hands over the address book once you explicitly allow it. This extension reads locally and sends nothing over the network.',
       };
 
     case 'spawn-failed':
@@ -73,31 +74,31 @@ export function diagnoseFailure(failure: HelperFailure): Diagnosis {
         return {
           kind: 'failure',
           detail:
-            'osascript wurde nicht gefunden. Auf macOS liegt es unter /usr/bin/osascript — fehlt es, ist das System beschädigt.',
+            'osascript was not found. On macOS it lives at /usr/bin/osascript — if it is missing, the system is damaged.',
         };
       }
       return {
         kind: 'failure',
-        detail: `osascript ließ sich nicht starten (${failure.code}): ${failure.message}`,
+        detail: `osascript could not be started (${failure.code}): ${failure.message}`,
       };
 
     case 'timeout':
       return {
         kind: 'failure',
         detail:
-          'Das Lesen der Kontakte hat zu lange gedauert. Wahrscheinlich wartet noch ein Systemdialog auf eine Antwort.',
+          'Reading the contacts took too long. Most likely a system dialog is still waiting for an answer.',
       };
 
     case 'helper-error':
       return {
         kind: 'failure',
-        detail: `Das Kontakte-Skript hat abgebrochen (${failure.token}).`,
+        detail: `The contacts helper aborted (${failure.token}).`,
       };
 
     case 'no-output':
       return {
         kind: 'failure',
-        detail: `Das Kontakte-Skript hat nichts zurückgegeben (Exit-Code ${failure.exitCode ?? '?'}).`,
+        detail: `The contacts helper returned nothing (exit code ${failure.exitCode ?? '?'}).`,
       };
   }
 }

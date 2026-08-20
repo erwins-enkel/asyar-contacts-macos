@@ -79,13 +79,13 @@ export function intentFor(event: KeyEventLike, primaryAction: ReachAction): Inte
 /** Label shown in the panel's footer hint row and in the ⌘K drawer, so the
  *  bindings are documented in exactly one place. */
 export const SHORTCUT_HINTS: ReadonlyArray<{ keys: string; label: string }> = [
-  { keys: '↑ ↓', label: 'Kontakt' },
-  { keys: '← →', label: 'Nummer' },
-  { keys: '⏎', label: 'Anrufen' },
+  { keys: '↑ ↓', label: 'Contact' },
+  { keys: '← →', label: 'Number' },
+  { keys: '⏎', label: 'Call' },
   { keys: '⌘⏎', label: 'FaceTime' },
-  { keys: '⌥⏎', label: 'Nachricht' },
+  { keys: '⌥⏎', label: 'Message' },
   { keys: '⇧⌥⏎', label: 'WhatsApp' },
-  { keys: '⌥⌘⏎', label: 'E-Mail' },
-  { keys: '⇧⏎', label: 'Kopieren' },
-  { keys: '⇧⌘⏎', label: 'Kontakte-App' },
+  { keys: '⌥⌘⏎', label: 'Email' },
+  { keys: '⇧⏎', label: 'Copy' },
+  { keys: '⇧⌘⏎', label: 'Contacts app' },
 ];

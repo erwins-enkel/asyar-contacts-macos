@@ -96,8 +96,10 @@ export type ReachAction =
  * WhatsApp's own scheme, which does not take a `tel:`-style number.
  *
  * `whatsapp://send?phone=` wants bare E.164 digits with **no** leading `+` —
- * WhatsApp puts it back itself (verified: passing `490000000000` produced the
- * error "+490000000000 ist nicht bei WhatsApp registriert").
+ * WhatsApp puts it back itself. Verified against the installed app: passing
+ * `490000000000` produced the error "+490000000000 ist nicht bei WhatsApp
+ * registriert" (the app is localised; that is German for "is not registered on
+ * WhatsApp"). Note the plus in its answer, which we never sent.
  *
  * The number must therefore already carry a country code. A nationally-stored
  * number like `01701112223` would be read as `+01631…`, i.e. a different

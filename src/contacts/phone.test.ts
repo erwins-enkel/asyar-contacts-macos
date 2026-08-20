@@ -83,8 +83,9 @@ describe('reachUrl', () => {
 
   it('sends WhatsApp bare E.164 digits, without the plus', () => {
     // Verified against the app: passing "490000000000" made WhatsApp report
-    // "+490000000000 ist nicht bei WhatsApp registriert" — it re-adds the plus
-    // itself, so sending one would double it.
+    // "+490000000000 ist nicht bei WhatsApp registriert" (German, the app is
+    // localised: "is not registered on WhatsApp"). It re-adds the plus itself,
+    // so sending one would double it.
     expect(reachUrl('whatsapp', '+491701112223')).toBe(
       'whatsapp://send?phone=491701112223',
     );

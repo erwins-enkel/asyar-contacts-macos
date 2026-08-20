@@ -1,25 +1,23 @@
 #!/usr/bin/env node
 // ─────────────────────────────────────────────────────────────────────────
-// Kein echtes Adressbuch im Repository.
+// No real address book in this repository.
 //
-// Diese Erweiterung liest die Kontakte ihres Nutzers. Beim Entwickeln liegt es
-// nahe, einen echten Datensatz als Testfixture zu nehmen — und genau das ist
-// hier einmal passiert: echte Namen und Rufnummern Dritter landeten in den
-// Tests und in einem Commit. Aufgefallen ist es erst, als es ums
-// Veröffentlichen ging.
+// This extension reads its user's contacts. While developing it is tempting to
+// grab a real record as a test fixture — and that is exactly what happened here
+// once: real names and phone numbers of third parties ended up in the tests and
+// in a commit. It was only noticed when it came to publishing.
 //
-// Sorgfalt reicht dagegen nicht. Also wird es geprüft.
+// Care is not a countermeasure. So it is checked.
 //
-// Das Prinzip ist eine **Allowlist, keine Denylist**: eine Denylist müsste
-// wissen, welche Nummern echt sind, und das kann sie nicht. Stattdessen muss
-// jede telefonnummer- oder mailadressenförmige Zeichenkette hier unten
-// ausdrücklich als erfunden eingetragen sein. Eine neue Testnummer aufzunehmen
-// ist damit eine bewusste Handlung, kein Versehen.
+// The principle is an **allowlist, not a denylist**: a denylist would have to
+// know which numbers are real, and it cannot. Instead every phone-number- or
+// email-shaped string has to be listed below as explicitly invented. Adding a
+// new test number is therefore a deliberate act, not an oversight.
 //
-// Namen lassen sich so nicht prüfen — dafür gilt die Regel, die die
-// Fehlermeldung nennt und die `normalize.test.ts` im Kopf dokumentiert:
-// Deutschlands kanonische Platzhalterpersonen (Max/Erika Mustermann, Lieschen
-// Müller, Musterfirma GmbH), nie jemand Echtes.
+// Names cannot be checked this way — for those the rule is the one the error
+// message states and `normalize.test.ts` documents at the top: Germany's
+// canonical placeholder people (Max/Erika Mustermann, Lieschen Müller,
+// Musterfirma GmbH), never anyone real.
 // ─────────────────────────────────────────────────────────────────────────
 import { execFileSync } from 'node:child_process';
 import { readFileSync } from 'node:fs';
@@ -28,46 +26,46 @@ import { fileURLToPath } from 'node:url';
 
 const root = resolve(dirname(fileURLToPath(import.meta.url)), '..');
 
-/** Erfundene Rufnummern, in Ziffern normalisiert (ohne +, Leerzeichen, /).
- *  Jede hier ist bewusst als offensichtliche Folge gewählt — 1234567, 765432,
- *  1112223, 0000 — damit sie auch beim Lesen niemand für echt hält. */
+/** Invented phone numbers, normalised to digits (no +, spaces or slashes).
+ *  Every one is deliberately an obvious run — 1234567, 765432, 1112223, 0000 —
+ *  so that nobody mistakes them for real while reading. */
 const ALLOWED_NUMBERS = new Set([
-  // Mobil
+  // Mobile
   '491721234567', '01721234567',
   '491511234567', '01511234567',
   '491701234567', '00491701234567',
   '491701112223', '01701112223',
-  // Festnetz mit Vorwahl
+  // Landline with area code
   '497131123456', '07131123456',
   '497131123400', '00497131123400',
   '497195765432', '07195765432',
   '497111234567',
   '49301',
-  // Nordamerika: 555-01xx ist für Fiktion reserviert
+  // North America: 555-01xx is reserved for fiction
   '5551234567', '15551234567',
-  // Nur für Fehlerfälle gedacht
+  // Only ever used to exercise a failure path
   '490000000000',
-  // Präfixe, die als Suchanfrage in Tests vorkommen
+  // Prefixes used as search queries in tests
   '4915112',
 ]);
 
-/** Mailadressen dürfen nur aus diesen Domains stammen: die
- *  RFC-2606-Beispieldomains und die des Autors. */
+/** Email addresses may only come from these domains: the RFC 2606 example
+ *  domains and the author's own. */
 const ALLOWED_EMAIL_DOMAINS = new Set([
   'example.com', 'example.org', 'example.net',
   'osthoff.blog',
-  'b.de', // 'a@b.de' — kürzestmögliche offensichtliche Attrappe
+  'b.de', // 'a@b.de' — the shortest possible obvious dummy
 ]);
 
 const SCANNED = /\.(ts|svelte|md|json|html|mjs|js)$/;
 
-/** Diese Datei ist die Registry selbst; sie zu scannen hieße, jeden erlaubten
- *  Eintrag als Fund zu melden. */
+/** This file is the registry itself; scanning it would report every allowed
+ *  entry as a finding. */
 const SELF = 'scripts/check-no-personal-data.mjs';
 
-/** Telefonnummerförmig: international (+…), 00-Schreibweise, oder national mit
- *  führender 0 und Vorwahl. Mindestens sechs Ziffern, damit Versionsnummern,
- *  Zeitstempel und Ländervorwahlen nicht hängenbleiben. */
+/** Phone-number-shaped: international (+…), the 00 spelling, or national with
+ *  a leading 0 and an area code. At least six digits, so version numbers,
+ *  timestamps and bare country codes do not get caught. */
 const PHONE = /(?<!\d)(\+\d[\d\s/().-]{5,}\d|00\d[\d\s/().-]{5,}\d|0\d{1,4}[\s/.-]?\d{5,})(?!\d)/g;
 const EMAIL = /[A-Za-z0-9._%+-]+@[A-Za-z0-9.-]+\.[A-Za-z]{2,}/g;
 
@@ -87,34 +85,33 @@ for (const file of trackedFiles()) {
     for (const match of line.matchAll(PHONE)) {
       const digits = match[0].replace(/\D/g, '');
       if (ALLOWED_NUMBERS.has(digits)) continue;
-      findings.push({ file, line: index + 1, kind: 'Rufnummer', value: match[0].trim() });
+      findings.push({ file, line: index + 1, kind: 'phone number', value: match[0].trim() });
     }
     for (const match of line.matchAll(EMAIL)) {
       const domain = match[0].split('@')[1]?.toLowerCase() ?? '';
       if (ALLOWED_EMAIL_DOMAINS.has(domain)) continue;
-      findings.push({ file, line: index + 1, kind: 'Mailadresse', value: match[0] });
+      findings.push({ file, line: index + 1, kind: 'email address', value: match[0] });
     }
   });
 }
 
 if (findings.length > 0) {
-  console.error('\ncheck-no-personal-data: nicht freigegebene Daten gefunden.\n');
+  console.error('\ncheck-no-personal-data: found data that is not on the allowlist.\n');
   for (const f of findings) {
     console.error(`  ${f.file}:${f.line}  ${f.kind}: ${f.value}`);
   }
   console.error(`
-Diese Erweiterung liest Adressbücher. Nichts Echtes gehört ins Repository —
-weder in Tests noch in Kommentare, Dokumentation oder Commit-Nachrichten.
+This extension reads address books. Nothing real belongs in the repository —
+not in tests, not in comments, documentation or commit messages.
 
-Wenn der Fund erfunden ist, trag ihn in ALLOWED_NUMBERS bzw.
-ALLOWED_EMAIL_DOMAINS in ${SELF} ein.
-Wähle Ziffernfolgen, die auch beim Lesen niemand für echt hält (1234567,
-765432, 1112223).
+If the finding is invented, add it to ALLOWED_NUMBERS or
+ALLOWED_EMAIL_DOMAINS in ${SELF}.
+Pick digit runs nobody would mistake for real (1234567, 765432, 1112223).
 
-Für Namen gilt dieselbe Regel, nur ohne Prüfung: Max/Erika Mustermann,
+The same rule applies to names, just without a check: Max/Erika Mustermann,
 Lieschen Müller, Musterfirma GmbH.
 `);
   process.exit(1);
 }
 
-console.log('check-no-personal-data: ok (keine echten Rufnummern oder Mailadressen)');
+console.log('check-no-personal-data: ok (no real phone numbers or email addresses)');

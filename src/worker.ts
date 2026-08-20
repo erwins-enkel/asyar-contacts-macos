@@ -3,7 +3,7 @@
 //
 // It exists for one job: keep the cached contact index warm so opening the
 // panel is instant rather than a three-second read. That is the scheduled
-// `refresh` command, plus the manifest's "Kontakte neu laden" action for the
+// `refresh` command, plus the manifest's "Reload contacts" action for the
 // root-search surface.
 //
 // One deliberate restraint. The worker never performs the *first* read. It
@@ -114,15 +114,15 @@ async function refreshIndex(force: boolean): Promise<void> {
     });
 
     if (!result.ok) {
-      log.warn(`[${extensionId}] Kontakt-Cache nicht aktualisiert: ${result.failure.kind}`);
+      log.warn(`[${extensionId}] contact cache not refreshed: ${result.failure.kind}`);
       return;
     }
 
     await writeIndex(cache, result.value);
-    log.info(`[${extensionId}] Kontakt-Cache aktualisiert (${result.value.contacts.length})`);
+    log.info(`[${extensionId}] contact cache refreshed (${result.value.contacts.length})`);
   } catch (error) {
     log.error(
-      `[${extensionId}] Kontakt-Refresh fehlgeschlagen: ${
+      `[${extensionId}] contact refresh failed: ${
         error instanceof Error ? error.message : String(error)
       }`,
     );

@@ -70,7 +70,7 @@ export function displayName(raw: RawContact): string {
   if (firstPhone) return firstPhone;
   const firstMail = raw.e?.[0]?.v?.trim();
   if (firstMail) return firstMail;
-  return 'Ohne Namen';
+  return 'No name';
 }
 
 function toPhones(raw: RawContact, options: NormalizeOptions): PhoneNumber[] {
@@ -78,7 +78,7 @@ function toPhones(raw: RawContact, options: NormalizeOptions): PhoneNumber[] {
     .map((item, index) => ({
       index,
       phone: {
-        label: item.l.trim() === '' ? 'Telefon' : item.l.trim(),
+        label: item.l.trim() === '' ? 'Phone' : item.l.trim(),
         display: item.v.trim(),
         dial: normalizeDial(item.v, options.dialPrefix),
       } satisfies PhoneNumber,
@@ -119,7 +119,7 @@ function toEmails(raw: RawContact): EmailAddress[] {
     const key = address.toLowerCase();
     if (seen.has(key)) continue;
     seen.add(key);
-    emails.push({ label: item.l.trim() === '' ? 'E-Mail' : item.l.trim(), address });
+    emails.push({ label: item.l.trim() === '' ? 'Email' : item.l.trim(), address });
   }
   return emails;
 }

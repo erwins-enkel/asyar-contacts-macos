@@ -1,220 +1,215 @@
-# Kontakte — macOS Contacts für Asyar
+# Contacts — macOS Contacts for Asyar
 
-Deine macOS-Kontakte direkt im Asyar-Launcher: tippen, markieren, `⏎` — und die
-Nummer wird über **Telefon.app** und damit über dein gekoppeltes iPhone gewählt.
+Your macOS address book inside the Asyar launcher: type, highlight, `⏎` — and the
+number is dialled through **Phone.app**, and with it your paired iPhone.
 
-Im Launcher heißt der Befehl **„Kontakte durchsuchen“** — bewusst mit Verb, damit
-er sich in der Trefferliste von macOS' eigener Kontakte.app unterscheidet. Der
-geplante Hintergrund-Refresh heißt **„Adressbuch-Cache auffrischen“**, weil Asyar
-keine Möglichkeit bietet, einen Befehl aus der Suche auszublenden — er darf also
-nicht auf denselben Anfangsbuchstaben konkurrieren.
+The launcher command is **“Search Contacts”** — deliberately with a verb, so it is
+distinguishable from macOS' own Contacts.app in the result list. The scheduled
+background refresh is called **“Refresh address book cache”**, because Asyar offers
+no way to hide a command from search, so it must not compete on the same first
+letters.
 
-`dev.erwins-enkel.contacts` · nur macOS · liest ausschließlich lokal, kein Netzwerk.
+`dev.erwins-enkel.contacts` · macOS only · reads locally, never touches the network.
 
 ---
 
-## Was sie kann
+## What it does
 
-| Taste | Aktion |
+| Key | Action |
 | --- | --- |
-| `↑` `↓` | Kontakt wechseln |
-| `←` `→` | zwischen den Nummern des markierten Kontakts wechseln |
-| `⏎` | **Anrufen** (`tel:` → Telefon.app → iPhone) |
+| `↑` `↓` | move between contacts |
+| `←` `→` | move between the highlighted contact's numbers |
+| `⏎` | **Call** (`tel:` → Phone.app → iPhone) |
 | `⌘⏎` | FaceTime Video |
-| `⌥⏎` | Nachricht (Messages) |
+| `⌥⏎` | Message (Messages) |
 | `⇧⌥⏎` | WhatsApp |
-| `⌥⌘⏎` | E-Mail |
-| `⇧⏎` | Nummer in die Zwischenablage |
-| `⇧⌘⏎` | in der Kontakte-App öffnen |
-| `⌘K` | Aktionsleiste mit allen Aktionen, inkl. FaceTime Audio und „Kontakte neu laden“ |
+| `⌥⌘⏎` | Email |
+| `⇧⏎` | copy the number to the clipboard |
+| `⇧⌘⏎` | open in the Contacts app |
+| `⌘K` | action drawer with everything above, plus FaceTime Audio and “Reload contacts” |
 
-Gefiltert wird über **Asyars eigene Suchleiste** — die Erweiterung hat bewusst
-kein eigenes Eingabefeld, weil der Fokus sonst aus dem Launcher wandern würde.
-Gesucht wird über Name, Firma, Spitzname, Jobtitel, jede E-Mail-Adresse und jede
-Rufnummer, sowohl in gespeicherter als auch in Wählform (`0172 …` **und**
-`+49172 …` finden denselben Kontakt).
+Filtering runs through **Asyar's own search bar** — the extension deliberately has
+no input field of its own, because focus would otherwise leave the launcher. The
+search covers name, company, nickname, job title, every email address and every
+phone number, both as stored and in dial form (`0172 …` **and** `+49172 …` find
+the same contact).
 
-Was Enter macht, ist einstellbar — siehe **Einstellungen** unten.
+What Enter does is configurable — see **Settings** below.
 
 ## Installation
 
 ```bash
 npm install
 npm run build
-npx asyar link --copy      # nicht das blanke `asyar link`, siehe unten
+npx asyar link --copy      # not the bare `asyar link`, see below
 ```
 
-Danach **Asyar neu starten**: der Launcher scannt sein Extensions-Verzeichnis
-nur beim Start.
+Then **restart Asyar**: the launcher only scans its extensions directory at startup.
 
-Beim ersten Öffnen sind zwei Freigaben nötig, jeweils einmalig:
+Opening it the first time needs two approvals, each of them once:
 
-1. **Asyar → Einstellungen (⌘,) → Extensions → „Kontakte“ → Berechtigungen
-   bestätigen.** Bis das passiert ist, hält Asyar *alle* Berechtigungen der
-   Erweiterung zurück — auch die, die mit dem gerade fehlgeschlagenen Aufruf
-   nichts zu tun haben. Das Panel erklärt diesen Zustand, statt zu hängen.
-2. **macOS: „asyar möchte auf deine Kontakte zugreifen“ → Erlauben.** Das
-   Panel bietet dafür einen Knopf an und verlinkt sonst in die
-   Systemeinstellungen.
+1. **Asyar → Settings (⌘,) → Extensions → “Contacts” → approve the permissions.**
+   Until that happens Asyar withholds *every* permission the extension declares —
+   including the ones that have nothing to do with the call that just failed. The
+   panel explains this state instead of hanging.
+2. **macOS: “asyar would like to access your contacts” → Allow.** The panel offers
+   a button for it and otherwise links into System Settings.
 
-Beides wird auch dann wieder fällig, wenn sich `permissions` **oder**
-`permissionArgs` im Manifest ändern — eine zusätzlich freigeschaltete
-URL-Schema-Zeile reicht schon.
+Both become due again whenever `permissions` **or** `permissionArgs` change in the
+manifest — one additional URL scheme is enough.
 
-Zusätzlich fragt Asyar einmalig, ob die Erweiterung `/usr/bin/osascript`
-starten darf. Das Binary ist im Manifest unter `permissionArgs["shell:spawn"]`
-deklariert, damit die Frage im Consent-Dialog erscheint und nicht später
-unvermittelt aus dem Hintergrund-Worker kommt.
+Asyar also asks once whether the extension may run `/usr/bin/osascript`. The binary
+is declared under `permissionArgs["shell:spawn"]` so the question appears in the
+consent dialog rather than arriving unannounced later from the background worker.
 
-## Einstellungen
+## Settings
 
-| Einstellung | Standard | Wirkung |
+| Setting | Default | Effect |
 | --- | --- | --- |
-| Enter-Taste | Anrufen | Was `⏎` auslöst — Anruf, FaceTime, Nachricht oder Kopieren |
-| Landesvorwahl | `auto` | Vorwahl für national gespeicherte Nummern. `auto` nimmt die Region aus macOS; leer lässt Nummern unverändert |
-| Bevorzugte Rufnummern | `iPhone, Mobil, …` | Reihenfolge, in der Nummern-Labels gewählt werden |
-| Kontaktfotos anzeigen | an | Foto des markierten Kontakts nachladen |
-| Firmen einschließen | an | reine Firmenkontakte mit anzeigen |
-| Im Hintergrund aktualisieren | an | Cache alle 30 Minuten auffrischen |
+| Enter key | Call | what `⏎` triggers — call, FaceTime, message, WhatsApp or copy |
+| Country code | `auto` | dialing prefix for nationally stored numbers. `auto` takes the region from macOS; empty leaves numbers untouched |
+| Preferred numbers | `iPhone, Mobile, …` | the order in which number labels are picked |
+| Show contact photos | on | load the photo of the highlighted contact |
+| Include companies | on | also show company-only records |
+| Refresh in the background | on | refresh the cache every 30 minutes |
 
-## Wie sie funktioniert
+## How it works
 
-### Kontakte lesen
+### Reading contacts
 
-Eine Asyar-Erweiterung kann kein natives Helferprogramm mitliefern; der einzige
-Weg zum Betriebssystem ist `ShellService.spawn()`. Also läuft der macOS-Teil als
-JXA-Skript in `/usr/bin/osascript` (`src/contacts/jxa.ts`) und spricht über die
-ObjC-Brücke direkt mit dem **Contacts-Framework**.
+An Asyar extension cannot ship a native helper; the only route to the operating
+system is `ShellService.spawn()`. So the macOS half runs as a JXA script inside
+`/usr/bin/osascript` (`src/contacts/jxa.ts`) and talks to the **Contacts framework**
+directly through the ObjC bridge.
 
-Das ist bewusst *nicht* AppleScript gegen Contacts.app: kein App-Start, kein
-Automation-Dialog, und `CNContactStore.enumerateContacts` streamt. Gemessen auf
-diesem Rechner: **2713 Kontakte in ~3,4 s**.
+This is deliberately *not* AppleScript against Contacts.app: no app launch, no
+Automation prompt, and `CNContactStore.enumerateContacts` streams. Measured on the
+development machine: **2713 contacts in ~3.4 s**.
 
-Ausgabe ist ein JSON-Objekt pro Zeile, Kontakte in Blöcken zu 250 — `ShellService`
-liefert stdout zeilenweise, und 2700 einzelne postMessage-Runden wären teurer als
-elf dicke.
+Output is one JSON object per line, contacts in batches of 250 — `ShellService`
+delivers stdout line by line, and 2700 separate postMessage round trips would cost
+far more than eleven fat ones.
 
-### Warum gecacht wird
+### Why it caches
 
-Drei Sekunden pro Panel-Öffnung wäre keine Launcher-Erfahrung. Der aufbereitete
-Index landet im Extension-Cache; das Panel zeichnet ihn sofort und schiebt den
-frischen Lesevorgang dahinter (`STALE_AFTER_MS`, 15 Minuten). Der Worker frischt
-zusätzlich alle 30 Minuten auf — aber **nie den ersten** Lesevorgang: die
-macOS-Kontaktabfrage soll immer sichtbar dadurch entstehen, dass jemand das
-Panel geöffnet hat, nie unvermittelt aus einem unsichtbaren Iframe.
+Three seconds per panel open would not be a launcher experience. The prepared index
+goes into the extension cache; the panel paints it immediately and pushes the fresh
+read behind it (`STALE_AFTER_MS`, 15 minutes). The worker additionally refreshes
+every 30 minutes — but **never the first** read: the macOS contacts prompt should
+always visibly follow from someone opening the panel, never arrive unannounced from
+an invisible iframe.
 
-### Wählen
+### Dialling
 
-`messageBroker.invoke('opener:open', { url })` unter `shell:open-url`. Einen
-typisierten Opener-Service gibt es im SDK nicht — `getService('opener')` wirft.
-`tel:` ist auf macOS 26 mit Telefon.app verknüpft, das den Anruf über das
-gekoppelte iPhone führt. `facetime:`, `facetime-audio:`, `sms:` und
-`addressbook:` sind über `permissionArgs["shell:open-url"]` freigeschaltet;
-`tel:` und `mailto:` deckt die Basisberechtigung ab.
+`messageBroker.invoke('opener:open', { url })` under `shell:open-url`. The SDK has
+no typed opener service — `getService('opener')` throws. On macOS 26 `tel:` is
+registered to Phone.app, which routes the call through the paired iPhone.
+`facetime:`, `facetime-audio:`, `sms:`, `whatsapp:` and `addressbook:` are unlocked
+through `permissionArgs["shell:open-url"]`; `tel:` and `mailto:` are covered by the
+base permission.
 
-**WhatsApp** tanzt aus der Reihe: `whatsapp://send?phone=` will nackte
-E.164-Ziffern **ohne** führendes `+` — die App setzt es selbst wieder davor.
-Deshalb braucht diese eine Aktion zwingend eine Nummer mit Landesvorwahl; eine
-national gespeicherte `01701112223` würde als `+01631…` gelesen. Statt zu raten
-verweigert die Erweiterung den Aufruf und sagt, welche Einstellung fehlt.
+Numbers are normalised to E.164 before dialling, but only where that is unambiguous
+(`src/contacts/phone.ts`): `+…` stays, `00…` becomes `+…`, a leading `0` is replaced
+by the country code. A number *without* a trunk prefix is left untouched — it
+carries no evidence of which country it belongs to, and guessing would dial a
+different subscriber.
 
-Nummern werden vor dem Wählen nach E.164 normalisiert, aber nur, wo das
-eindeutig ist (`src/contacts/phone.ts`): `+…` bleibt, `00…` wird zu `+…`, eine
-führende `0` wird durch die Landesvorwahl ersetzt. Eine Nummer *ohne*
-Verkehrsausscheidungsziffer bleibt unverändert — ihr fehlt jeder Hinweis auf das
-Land, und Raten würde einen anderen Anschluss wählen.
+**WhatsApp** is the exception: `whatsapp://send?phone=` wants bare E.164 digits
+**without** a leading `+`, which the app puts back itself. That one action therefore
+requires a number with a country code; a nationally stored number would otherwise be
+read as belonging to a country that does not exist. Rather than guess, the extension
+refuses and names the setting that is missing.
 
-Fax-Nummern rutschen immer ans Ende der Liste. Enter wählt, und ein Faxgerät ist
-die eine Nummer im Adressbuch, die nie die Vorauswahl sein darf.
+Fax numbers always sort last. Enter dials, and a fax machine is the one number in an
+address book that must never be the default.
 
-### Tastatur
+### Keyboard
 
-Während Asyars Suchleiste den Fokus hat — der Normalfall, sie ist ja das Filter —
-fängt der Launcher Tasten ab, bevor sie im Iframe DOM-Events werden, und liefert
-genau sechs davon als `asyar:view:keydown` nach: `↑ ↓ ← →`, `⏎`, `Tab`. Die
-Modifier-Flags kommen mit. Genau darauf beruht die Tastenbelegung: modifiziertes
-Enter ist die einzige Möglichkeit, aus einem Panel, in das man tippt, mehr als
-eine Ein-Tasten-Aktion herauszuholen.
+While Asyar's search bar has focus — the normal case, since that bar is the filter —
+the launcher intercepts keys before they can become DOM events in the iframe and
+re-delivers exactly six of them as `asyar:view:keydown`: `↑ ↓ ← →`, `⏎`, `Tab`. The
+modifier flags come along. The whole key map rests on that: modified Enter is the
+only way to get more than one single-keystroke action out of a panel you are typing
+into.
 
-Deshalb ist die Markierung reiner Zustand (`selectedId`) und nie DOM-Fokus —
-`.focus()` auf einer Zeile würde den Fokus aus der Suchleiste nehmen und das
-Tippen beenden, das die Liste filtert.
+That is also why the highlight is pure state (`selectedId`) and never DOM focus —
+`.focus()` on a row would take focus off the search bar and stop the typing that
+filters the list.
 
-## Entwicklung
+## Development
 
 ```bash
-npm run setup     # einmalig: aktiviert den Pre-Commit-Hook
-npm run check     # tsc --noEmit && svelte-check && check:data
-npm test          # 79 Unit-Tests über die reine Schicht
-npm run check:data # keine echten Rufnummern/Mailadressen im Repo
-npm run build     # vite build + Bundle-Prüfung
-npm run validate  # asyar validate
+npm run setup      # once: enables the pre-commit hook
+npm run check      # tsc --noEmit && svelte-check && check:data
+npm test           # 79 unit tests over the pure layer
+npm run check:data # no real phone numbers/email addresses in the repo
+npm run build      # vite build + bundle check
+npm run validate   # asyar validate
 ```
 
-Nach jedem Build `npx asyar link --copy` erneut ausführen; das Panel lädt beim
-nächsten Öffnen frisch. Manifest-Änderungen brauchen einen Asyar-Neustart.
+Run `npx asyar link --copy` again after every build; the panel loads fresh the next
+time it opens. Manifest changes need an Asyar restart.
 
-**`asyar link --copy`, nicht das blanke `asyar link`.** Die Standardvariante legt
-einen Symlink an. Der Rust-Scheme-Handler kanonisiert den Treffer und prüft ihn
-gegen `is_path_allowed()`; die Regel, die beliebige Symlink-Ziele erlauben würde,
-steht hinter `#[cfg(debug_assertions)]`. Im Release-Build liefert `view.html`
-darum **403** — sichtbar nur als leeres Panel plus
-`[workerRegistry] unmount … reason=timeout` im Log.
+**`asyar link --copy`, not the bare `asyar link`.** The default variant creates a
+symlink. The Rust scheme handler canonicalises the hit and checks it against
+`is_path_allowed()`; the rule that would permit arbitrary symlink targets sits behind
+`#[cfg(debug_assertions)]`. On a release build `view.html` therefore returns **403** —
+visible only as an empty panel plus `[workerRegistry] unmount … reason=timeout` in
+the log.
 
-### Keine echten Personendaten im Repository
+### No real personal data in the repository
 
-`scripts/check-no-personal-data.mjs` läuft vor jedem Build und in jedem Commit
-(`.githooks/pre-commit`, aktiviert durch `npm run setup`). Er bricht ab, sobald
-irgendwo eine telefonnummer- oder mailadressenförmige Zeichenkette auftaucht,
-die nicht ausdrücklich als erfunden eingetragen ist.
+`scripts/check-no-personal-data.mjs` runs before every build and on every commit
+(`.githooks/pre-commit`, enabled by `npm run setup`). It aborts as soon as a
+phone-number- or email-shaped string appears anywhere that is not explicitly listed
+as invented.
 
-Es ist bewusst eine **Allowlist**: eine Denylist müsste wissen, welche Nummern
-echt sind, und das kann sie nicht. Eine neue Testnummer aufzunehmen ist damit
-eine bewusste Handlung.
+It is deliberately an **allowlist**: a denylist would have to know which numbers are
+real, and it cannot. Adding a new test number is therefore a deliberate act.
 
-Der Anlass war ein echter Fehler — beim Entwickeln lag es nahe, einen Ausschnitt
-des eigenen Adressbuchs als Fixture zu nehmen, und so landeten Namen und
-Rufnummern Dritter in Tests und in einem Commit. Aufgefallen ist das erst beim
-Veröffentlichen. Für eine Erweiterung, die Adressbücher liest, ist das die
-naheliegendste Art, Schaden anzurichten, also wird sie geprüft statt beachtet.
+The reason was a real mistake — while developing, it was tempting to use a slice of
+the author's own address book as a fixture, and so names and phone numbers of third
+parties ended up in tests and in a commit. It was only noticed when it came to
+publishing. For an extension that reads address books this is the most obvious way to
+do harm, so it is checked rather than merely watched for.
 
-Für Namen gibt es keine Prüfung, nur die Regel: Max/Erika Mustermann, Lieschen
-Müller, Musterfirma GmbH.
+Names get no check, only the rule: Max/Erika Mustermann, Lieschen Müller,
+Musterfirma GmbH.
 
-`scripts/check-bundle.mjs` läuft nach jedem Build und prüft die eine Sache, die
-still kaputtgehen kann: `view.ts` und `worker.ts` teilen sich Module, also gibt
-Rollup einen gemeinsamen Chunk aus. `asyar-sdk/view` und `asyar-sdk/worker`
-werfen beim Laden, wenn `window.__ASYAR_ROLE__` nicht passt — landet so eine
-Prüfung im geteilten Chunk, stirbt der Worker bei jedem Start mit einer Meldung,
-die auf das SDK zeigt statt auf diesen Build. Regel: geteilte Module beziehen
-ihre Typen nur aus `asyar-sdk/contracts`.
+`scripts/check-bundle.mjs` runs after every build and checks the one thing that can
+break silently: `view.ts` and `worker.ts` share modules, so Rollup emits a common
+chunk. `asyar-sdk/view` and `asyar-sdk/worker` throw at module load when
+`window.__ASYAR_ROLE__` does not match — if such an assertion ever landed in that
+shared chunk, the worker would die on every boot with a message pointing at the SDK
+rather than at this build. The rule: shared modules take their types from
+`asyar-sdk/contracts` only.
 
-## Aufbau
+## Layout
 
 ```
-manifest.json          Berechtigungen, Befehle, Einstellungen
-view.html / worker.html   Einstiegspunkte; die Dateinamen bestimmen __ASYAR_ROLE__
-src/view.ts            Bootstrap des Panels
-src/worker.ts          geplanter Cache-Refresh + Root-Search-Aktion
-src/ContactsView.svelte   das Panel
-src/opener.ts          der eine Weg, eine URL an macOS zu geben
+manifest.json             permissions, commands, settings
+view.html / worker.html   entry points; the filenames decide __ASYAR_ROLE__
+src/view.ts               panel bootstrap
+src/worker.ts             scheduled cache refresh + root-search action
+src/ContactsView.svelte   the panel
+src/opener.ts             the one way to hand a URL to macOS
 src/contacts/
-  jxa.ts               das macOS-Skript, als String
-  protocol.ts          stdout → Datensätze
-  loader.ts            ShellService-Orchestrierung
-  normalize.ts         Rohdaten → anzeigbare Kontakte
-  phone.ts             Nummern-Normalisierung, tel:/facetime:/sms:-URLs
-  dialingCodes.ts      ISO-Region → Landesvorwahl
-  search.ts            Filtern und Ranking
-  selection.ts         Markierungs-Arithmetik
-  keys.ts              die Tastenbelegung
-  diagnose.ts          Fehler → was der Mensch tun soll
-  cache.ts             Index-Persistenz
+  jxa.ts                  the macOS script, as a string
+  protocol.ts             stdout → records
+  loader.ts               ShellService orchestration
+  normalize.ts            raw records → displayable contacts
+  phone.ts                number normalisation, tel:/facetime:/sms:/whatsapp: URLs
+  dialingCodes.ts         ISO region → country calling code
+  search.ts               filtering and ranking
+  selection.ts            selection arithmetic
+  keys.ts                 the key map
+  diagnose.ts             failures → what the human should do
+  cache.ts                index persistence
 ```
 
-Alles unter `src/contacts/` ist rein und in `node` testbar — es importiert
-höchstens Typen aus `asyar-sdk/contracts`, nie die rollenprüfenden Einstiege.
+Everything under `src/contacts/` is pure and testable in `node` — it imports at most
+types from `asyar-sdk/contracts`, never the role-asserting entries.
 
-## Lizenz
+## License
 
-MIT — siehe [LICENSE](LICENSE).
+MIT — see [LICENSE](LICENSE).
