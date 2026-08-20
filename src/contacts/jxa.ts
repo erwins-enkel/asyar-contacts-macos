@@ -22,11 +22,18 @@
 //
 // Keep this file dependency-free ES5. It is not compiled by our TypeScript
 // build — it is a string that osascript's JavaScriptCore parses.
+//
+// The first line is a comment on purpose. Asyar promotes every `shell.spawn()`
+// to a tracked "run" whose label is `program + args` truncated to 100
+// characters, and those runs surface in the launcher's own search results. With
+// the script starting straight into `ObjC.import(...)`, that label was a slab of
+// JavaScript sitting in the user's launcher after every load. Leading with a
+// comment costs nothing and makes the truncated label say what it is.
 // ─────────────────────────────────────────────────────────────────────────
 
 export const BATCH_SIZE = 250;
 
-export const CONTACTS_JXA = String.raw`
+export const CONTACTS_JXA = String.raw`// Asyar · Contacts — reading your macOS address book
 ObjC.import('Contacts');
 ObjC.import('Foundation');
 

@@ -258,6 +258,59 @@ exactly three message types — `asyar:view:search`, `asyar:view:submit`,
 `asyar:view:keydown`. No `viewDeactivated`, no `onHide`. The `context.onHide(...)`
 from the ShellService example in the docs does not exist in the SDK.
 
+### Command search matches the name and nothing else
+
+**SOURCE**, `search_engine/models.rs`:
+
+```rust
+SearchableItem::Command(c) => vec![c.name.as_str()],
+```
+
+Applications contribute several strings (display name, filename stem);
+a command contributes exactly one. `trigger` *is* stored — `ExtensionLoader`
+sends `trigger: cmd.trigger || cmd.name` into `syncCommandIndex`, and the row
+carries it — but nothing ever matches against it. It is used by the settings
+filter (`extensionFilters.ts`) and as a keyword blob for the extension list, not
+by the launcher's own search. There is no `keywords` field for commands either.
+
+Consequence for a localised audience: a command is findable only under the words
+in its `name`. On a German macOS the Contacts app is called “Kontakte”, so a
+command named “Search Contacts” is not found by someone typing what they see.
+The mechanisms that do exist are the user-set **alias** (Settings → Extensions →
+Add Alias) and, well, the name itself.
+
+### Every shell.spawn() becomes a visible run
+
+**OBSERVED.** `shellService.svelte.ts` promotes every spawn to a tracked run:
+
+```ts
+const resolvedLabel =
+  label ?? `${program}${args.length ? ' ' + args.join(' ') : ''}`.slice(0, 100);
+runService.startLocal({ label: resolvedLabel, kind: 'shell-script', … });
+```
+
+This happens unconditionally — no `runs:track` permission is involved — and
+succeeded `shell-script` runs surface in the launcher's search results until
+dismissed (`searchResultMapper.ts`). Since this extension passes its whole JXA
+helper as the `-e` argument, the label became a slab of JavaScript, one row per
+panel open plus one per background refresh. 32 of them had piled up.
+
+There is a `label` parameter, but **the SDK does not forward it**:
+`ShellServiceProxy.spawn` sends only `{ program, args, spawnId }`. Reaching it
+would mean a raw `messageBroker.invoke('shell:spawn', …)` — and the router maps
+an object payload to positional arguments by `Object.values()` order, appending
+`originRole` last, so the payload would have to carry a dummy `originRole` in the
+right slot to land `label` on the right parameter. That works today and would
+break silently if the signature ever gained a parameter, so this project does not
+do it.
+
+The mitigation that costs nothing: start the script with a comment, so the
+truncated label reads
+`osascript -l JavaScript -e // Asyar · Contacts — reading your macOS address book`.
+
+The real fix belongs upstream — a Tier 2 extension's internal spawns are not
+user-initiated scripts and should not compete with them in search results.
+
 ### Commands cannot be hidden from search
 
 **SOURCE**, `ExtensionCommand` in `extensions/mod.rs`. There is no `hidden`, no
