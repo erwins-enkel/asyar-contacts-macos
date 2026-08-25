@@ -28,6 +28,24 @@ letters.
 | `⇧⌘⏎` | open in the Contacts app |
 | `⌘K` | action drawer with everything above, plus FaceTime Audio and “Reload contacts” |
 
+### From the launcher, without opening the panel
+
+Typing a name straight into Asyar offers the person, and Enter dials — no panel
+in between. The worker answers that from an in-memory copy of the index, because
+the launcher caps the whole extension-search round at 200 ms.
+
+The same path solves a discoverability problem. Asyar matches a command by its
+`name` and nothing else (`trigger` is stored but never searched, and there is no
+`keywords` field), so on a German macOS — where the Contacts app is called
+“Kontakte” — a command named “Search Contacts” is invisible to someone typing
+what they see. `src/contacts/rootSearch.ts` carries a small keyword list
+(*contacts, kontakte, adressbuch, telefonbuch, annuaire, …*) that offers the
+panel for any of them.
+
+Root search for extensions sits behind **Settings → Advanced → Extension
+Search**, which is off by default. The command itself is always findable; an
+alias (Settings → Extensions → Add Alias) covers the rest.
+
 Filtering runs through **Asyar's own search bar** — the extension deliberately has
 no input field of its own, because focus would otherwise leave the launcher. The
 search covers name, company, nickname, job title, every email address and every
@@ -141,7 +159,7 @@ filters the list.
 ```bash
 npm run setup      # once: enables the pre-commit hook
 npm run check      # tsc --noEmit && svelte-check && check:data
-npm test           # 79 unit tests over the pure layer
+npm test           # 94 unit tests over the pure layer
 npm run check:data # no real phone numbers/email addresses in the repo
 npm run build      # vite build + bundle check
 npm run validate   # asyar validate
@@ -203,6 +221,7 @@ src/contacts/
   search.ts               filtering and ranking
   selection.ts            selection arithmetic
   keys.ts                 the key map
+  rootSearch.ts           results for the launcher's own search bar
   diagnose.ts             failures → what the human should do
   cache.ts                index persistence
 ```

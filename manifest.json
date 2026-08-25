@@ -1,12 +1,14 @@
 {
   "id": "dev.erwins-enkel.contacts",
   "name": "Contacts",
-  "version": "0.1.1",
+  "version": "0.1.2",
   "type": "extension",
   "description": "macOS Contacts in Asyar: search contacts and dial them through your iPhone.",
   "author": "Kai Osthoff",
   "icon": "📇",
-  "platforms": ["macos"],
+  "platforms": [
+    "macos"
+  ],
   "searchable": true,
   "asyarSdk": "^4.7.0",
   "permissions": [
@@ -18,7 +20,9 @@
     "preferences:read"
   ],
   "permissionArgs": {
-    "shell:spawn": ["osascript"],
+    "shell:spawn": [
+      "osascript"
+    ],
     "shell:open-url": [
       "facetime",
       "facetime-audio",
@@ -37,12 +41,30 @@
       "description": "What Enter does on the highlighted contact.",
       "default": "call",
       "data": [
-        { "title": "Call (Phone / iPhone)", "value": "call" },
-        { "title": "FaceTime Audio", "value": "facetime-audio" },
-        { "title": "FaceTime Video", "value": "facetime" },
-        { "title": "Send a message", "value": "sms" },
-        { "title": "WhatsApp", "value": "whatsapp" },
-        { "title": "Copy the number", "value": "copy" }
+        {
+          "title": "Call (Phone / iPhone)",
+          "value": "call"
+        },
+        {
+          "title": "FaceTime Audio",
+          "value": "facetime-audio"
+        },
+        {
+          "title": "FaceTime Video",
+          "value": "facetime"
+        },
+        {
+          "title": "Send a message",
+          "value": "sms"
+        },
+        {
+          "title": "WhatsApp",
+          "value": "whatsapp"
+        },
+        {
+          "title": "Copy the number",
+          "value": "copy"
+        }
       ]
     },
     {

@@ -198,11 +198,19 @@
 
       applyIndex(result.value.contacts, result.value.at);
       photoCache.clear();
-      void writeIndex(cache(), result.value).catch(() => {
-        // A cache that will not accept the index costs the next open three
-        // seconds. It does not cost this one anything, so it is not an error
-        // worth interrupting the user for.
-      });
+      void writeIndex(cache(), result.value)
+        .then(() => {
+          // Tell the worker to re-read it. The worker answers root search from
+          // an in-memory copy, and without this nudge that copy would stay
+          // stale until the next scheduled refresh — up to half an hour of the
+          // launcher answering from an older address book.
+          void context.request('indexUpdated', {}).catch(() => {});
+        })
+        .catch(() => {
+          // A cache that will not accept the index costs the next open three
+          // seconds. It does not cost this one anything, so it is not an error
+          // worth interrupting the user for.
+        });
     } catch (error) {
       // Anything that throws rather than resolving to a failure — a gated SDK
       // call rejecting, most likely. Without this the panel sat on its
