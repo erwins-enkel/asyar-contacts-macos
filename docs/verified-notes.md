@@ -311,6 +311,52 @@ truncated label reads
 The real fix belongs upstream — a Tier 2 extension's internal spawns are not
 user-initiated scripts and should not compete with them in search results.
 
+#### How long they stay, and how many
+
+**SOURCE**, `runService.svelte.ts`. Succeeded `shell-script` runs land in
+`unacknowledgedScriptResults`, rendered as `run-done` rows until the user hits
+⌘K → Dismiss. The slice is capped at `UNACK_FAILED_CAP = 5`, and runs are
+“deduped by `subjectId` when present; anonymous runs are deduped by id”. Tier 2
+spawns never carry a `subjectId` (`shellService.spawn` only receives one from
+Tier 1 script dispatch), so **every single spawn is its own row** and the
+launcher permanently shows the last five. Dismissing one only makes room for the
+next.
+
+The history behind them is queryable, which makes “how often is my extension
+actually spawning?” a question with an answer rather than a guess:
+
+```sh
+sqlite3 ~/Library/'Application Support'/org.asyar.app/asyar_data.db \
+  "select datetime(started_at/1000,'unixepoch','localtime'), status,
+          ended_at-started_at, substr(tail_output,1,60)
+   from runs_history where extension_id='dev.erwins-enkel.contacts'
+   order by started_at desc limit 20"
+```
+
+That query is what turned a vague “why does this keep appearing?” into the
+timestamps 09:51:31 / 10:21:31 / 10:51:31 — the scheduled refresh, exactly on the
+half hour, 2.2 s and a 1.4 MB cache write each, on days the extension was never
+opened. Hence `refreshPolicy.ts`: the tick now reads only after root search has
+actually offered someone a contact.
+
+### Scheduled intervals are clamped to 10 s … 24 h
+
+**SOURCE**, `extensions/scheduler.rs`: `MIN_INTERVAL_SECS = 10`,
+`MAX_INTERVAL_SECS = 86400`, enforced by `validate_interval` at discovery time.
+A daily tick is the longest a manifest can ask for, so anything rarer has to be
+a staleness check inside the command rather than a schedule.
+
+### A new app bundle resets the Contacts grant
+
+**OBSERVED.** `/Applications/Asyar.app` was replaced at 16:24; the 16:23 read
+returned `{"done":2713}` and the next one, at 17:03, returned
+`{"error":"not_authorized","auth":0}` — `auth: 0` being `notDetermined`, not
+`denied`. macOS ties the TCC grant to the app bundle, so every Asyar update puts
+the extension back to square one. Two consequences worth designing for: the
+helper exits 0 either way, so the launcher files a refused read as a green
+“Done”; and a scheduler that retries on a clock will spawn a doomed `osascript`
+forever. Both are handled — see `AUTH_BACKOFF_MS` in `refreshPolicy.ts`.
+
 ### Commands cannot be hidden from search
 
 **SOURCE**, `ExtensionCommand` in `extensions/mod.rs`. There is no `hidden`, no
@@ -318,6 +364,13 @@ user-initiated scripts and should not compete with them in search results.
 `trigger`, `mode`, `icon`, `component`, `schedule`, `preferences`, `actions`,
 `arguments`, `requireAnyOf`, `searchBarAccessory`. Every declared command shows
 in root search, including a pure `mode: "background"` maintenance command.
+
+A scheduled command can at least tell *who* invoked it. The scheduler's payload
+carries `args: { "scheduledTick": true }` (**SOURCE**, `scheduler.rs`, asserted
+by its own test; the launcher's `commandService` keys its preference-gate bypass
+off the same flag), and the SDK forwards `args` to `executeCommand`. So the one
+handler can serve both callers: a tick that may decline, and a user who picked
+the row and gets an unconditional read.
 
 Practical consequence: an internal command needs a name that does not compete
 with the real one. Back when this extension shipped a German UI, the scheduled
@@ -381,7 +434,8 @@ worker too.
   capped at **200 ms** (**SOURCE**), and one cache read per keystroke does not
   fit.
 - **Incremental refresh.** `CNChangeHistory` would reduce the 3.4-second run to a
-  delta. Not needed so far for a 30-minute background refresh.
+  delta. Less pressing since the scheduled refresh became usage-gated — the reads
+  that remain are ones somebody actually asked for.
 - **Row cap.** The panel renders at most 200 rows and states how many it is
   holding back. At 2713 contacts, virtualisation is the real answer if anyone
   wants to scroll unfiltered.

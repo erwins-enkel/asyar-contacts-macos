@@ -89,7 +89,7 @@ consent dialog rather than arriving unannounced later from the background worker
 | Preferred numbers | `iPhone, Mobile, …` | the order in which number labels are picked |
 | Show contact photos | on | load the photo of the highlighted contact |
 | Include companies | on | also show company-only records |
-| Refresh in the background | on | refresh the cache every 30 minutes |
+| Refresh in the background | on | re-read the address book after use, at most every 30 minutes |
 
 ## How it works
 
@@ -112,10 +112,19 @@ far more than eleven fat ones.
 
 Three seconds per panel open would not be a launcher experience. The prepared index
 goes into the extension cache; the panel paints it immediately and pushes the fresh
-read behind it (`STALE_AFTER_MS`, 15 minutes). The worker additionally refreshes
-every 30 minutes — but **never the first** read: the macOS contacts prompt should
-always visibly follow from someone opening the panel, never arrive unannounced from
-an invisible iframe.
+read behind it (`STALE_AFTER_MS`, 15 minutes).
+
+The worker keeps that index fresh for *root* search, where there is no panel to
+trigger a read — but on use, not on a clock. (Picking “Refresh address book
+cache” in the launcher yourself always reads: the scheduler identifies itself
+with `args.scheduledTick`, so a person choosing the row is never turned away.) Its scheduled tick spawns the helper
+only when root search has actually offered someone a contact since the last read,
+the index is stale, and Contacts access was not refused in the last 24 hours
+(`src/contacts/refreshPolicy.ts`). An address book nobody searched costs nothing to
+keep fresh: no `osascript`, no 1.4 MB cache write, no tracked run in the launcher.
+
+And **never the first** read: the macOS contacts prompt should always visibly follow
+from someone opening the panel, never arrive unannounced from an invisible iframe.
 
 ### Dialling
 

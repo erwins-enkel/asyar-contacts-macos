@@ -1,7 +1,7 @@
 {
   "id": "dev.erwins-enkel.contacts",
   "name": "Contacts",
-  "version": "0.1.2",
+  "version": "0.1.3",
   "type": "extension",
   "description": "macOS Contacts in Asyar: search contacts and dial them through your iPhone.",
   "author": "Kai Osthoff",
@@ -101,7 +101,7 @@
       "name": "backgroundRefresh",
       "type": "checkbox",
       "title": "Refresh in the background",
-      "description": "Refreshes the contact cache every 30 minutes so the first match is instant. Only starts once the contacts have been loaded manually.",
+      "description": "Re-reads the address book behind the scenes \u2014 at most every 30 minutes, and only after root search has actually offered you a contact. Left alone, the extension reads nothing.",
       "default": true
     }
   ],

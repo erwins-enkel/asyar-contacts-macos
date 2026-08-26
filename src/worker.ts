@@ -12,11 +12,16 @@
 // cache read per keystroke, so the index is held in memory here and `search()`
 // only ever scans it.
 //
-// One deliberate restraint. The worker never performs the *first* read. It
-// refreshes an index that already exists and otherwise does nothing, so the
-// macOS Contacts prompt always arrives because the user opened the panel —
-// never unprompted, minutes after login, from a hidden iframe with no visible
-// cause.
+// Two deliberate restraints.
+//
+// The worker never performs the *first* read. It refreshes an index that
+// already exists and otherwise does nothing, so the macOS Contacts prompt
+// always arrives because the user opened the panel — never unprompted, minutes
+// after login, from a hidden iframe with no visible cause.
+//
+// And the scheduled tick is a heartbeat, not a job: it reads only when someone
+// has actually been offered a contact since the last read. An address book
+// nobody searched costs nothing to keep fresh. See `refreshPolicy.ts`.
 //
 // Imports come from `asyar-sdk/worker` (role-asserted) and `asyar-sdk/contracts`
 // (pure types + the message broker). Nothing here touches the DOM.
@@ -38,6 +43,11 @@ import manifest from '../manifest.json';
 import { readIndex, writeIndex } from './contacts/cache';
 import { loadIndex } from './contacts/loader';
 import { buildRootResults, parseCallPayload } from './contacts/rootSearch';
+import {
+  decideScheduledRefresh,
+  hasContactHit,
+  isScheduledTick,
+} from './contacts/refreshPolicy';
 import { reachUrl } from './contacts/phone';
 import type { Contact } from './contacts/types';
 import { openExternal } from './opener';
@@ -61,6 +71,16 @@ const shell = context.getService<IShellService>('shell');
  *  Two concurrent osascript processes over the same address book would just
  *  race to write the same cache key. */
 let running = false;
+
+/** Set when root search has offered someone a contact, cleared when a read
+ *  starts. The scheduled tick reads the address book only when this is true —
+ *  see `refreshPolicy.ts` for why a clock alone was the wrong trigger. */
+let usedSinceRefresh = false;
+
+/** When a read last came back `not-authorized`, so the scheduler can stop
+ *  spawning a helper that is only going to be refused. Cleared by any
+ *  successful read, here or in the panel. */
+let deniedAt: number | null = null;
 
 /** The index, in memory, purely so `search()` can answer inside the launcher's
  *  200 ms budget. It is a mirror of the cache, never a second source of truth:
@@ -120,9 +140,9 @@ async function readPrefs(): Promise<Prefs> {
 /**
  * Re-read the address book into the cache.
  *
- * `force` marks a user-initiated reload (the ⌘K action). Without it this is
- * the scheduler talking, and it declines to run unless the user has already
- * opted into background refresh *and* an index exists to refresh.
+ * `force` marks a user-initiated reload (the ⌘K action) and reads
+ * unconditionally. Without it this is the scheduler talking, and every clause
+ * in `decideScheduledRefresh` has to agree before a helper is spawned.
  */
 async function refreshIndex(force: boolean): Promise<void> {
   if (running) return;
@@ -131,10 +151,22 @@ async function refreshIndex(force: boolean): Promise<void> {
     const prefs = await readPrefs();
 
     if (!force) {
-      if (!prefs.backgroundRefresh) return;
-      const existing = await readIndex(cache);
-      if (existing === null) return; // the panel has never been opened
+      const decision = decideScheduledRefresh({
+        backgroundRefresh: prefs.backgroundRefresh,
+        index: await readIndex(cache),
+        usedSinceRefresh,
+        deniedAt,
+        now: Date.now(),
+      });
+      if (!decision.run) {
+        log.debug(`[${extensionId}] scheduled refresh skipped: ${decision.reason}`);
+        return;
+      }
     }
+
+    // Whatever prompted this read is now being served. A use that lands while
+    // the helper runs sets the flag again and books the next tick.
+    usedSinceRefresh = false;
 
     const result = await loadIndex(shell, {
       countryCode: prefs.countryCode,
@@ -143,10 +175,15 @@ async function refreshIndex(force: boolean): Promise<void> {
     });
 
     if (!result.ok) {
+      // A refusal is the one failure worth remembering: retrying it on a timer
+      // spawns a doomed `osascript` — and leaves a tracked run in the
+      // launcher's search results — every half hour, forever.
+      if (result.failure.kind === 'not-authorized') deniedAt = Date.now();
       log.warn(`[${extensionId}] contact cache not refreshed: ${result.failure.kind}`);
       return;
     }
 
+    deniedAt = null;
     await writeIndex(cache, result.value);
     index = result.value.contacts;
     log.info(`[${extensionId}] contact cache refreshed (${result.value.contacts.length})`);
@@ -166,9 +203,12 @@ class ContactsWorkerExtension implements Extension {
   async activate(): Promise<void> {}
   async deactivate(): Promise<void> {}
 
-  async executeCommand(commandId: string): Promise<unknown> {
+  /** `args` is how the scheduler identifies itself. The same command is also a
+   *  plain row in root search — a command cannot be hidden from it — and
+   *  someone who picks it there gets an unconditional read. */
+  async executeCommand(commandId: string, args?: Record<string, unknown>): Promise<unknown> {
     if (commandId === 'refresh') {
-      await refreshIndex(false);
+      await refreshIndex(!isScheduledTick(args));
     }
     return undefined;
   }
@@ -183,7 +223,9 @@ class ContactsWorkerExtension implements Extension {
    * Navigation rides on `viewPath`, dialling on `actionId`/`actionPayload`.
    */
   async search(query: string): Promise<ExtensionResult[]> {
-    return buildRootResults(index, query, extensionId).map((result) => ({
+    const results = buildRootResults(index, query, extensionId);
+    if (hasContactHit(results)) usedSinceRefresh = true;
+    return results.map((result) => ({
       ...result,
       action: () => {},
     }));
@@ -230,6 +272,10 @@ extensionBridge.registerActionHandler(extensionId, 'search-call', async (payload
 // worker's copy would sit stale until the next scheduled refresh — up to half
 // an hour of root search answering from yesterday's address book.
 context.onRequest('indexUpdated', async () => {
+  // The panel only announces an index it actually read, so access plainly
+  // works and the scheduler's backoff has nothing left to protect against.
+  deniedAt = null;
+  usedSinceRefresh = false;
   await loadIndexIntoMemory();
 });
 
