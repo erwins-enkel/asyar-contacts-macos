@@ -339,6 +339,27 @@ half hour, 2.2 s and a 1.4 MB cache write each, on days the extension was never
 opened. Hence `refreshPolicy.ts`: the tick now reads only after root search has
 actually offered someone a contact.
 
+### A running launcher does not pick up `asyar link --copy`
+
+**OBSERVED**, the hard way. `asyar link --copy` writes into the extensions
+directory, but a launcher that is already running keeps the manifest it
+discovered at startup — schedule included — and goes on executing it. There is
+no user-facing “reload extensions”: uninstalling calls a reload callback, and
+nothing else does. Quit and relaunch, or you are measuring the old build.
+
+This cost four days here. A fix for a 30-minute scheduled tick was installed,
+observed, and the very next tick fired anyway — which looked like the fix not
+working. It was the previous process, still up since the day before:
+
+```sh
+ps -eo lstart=,pid=,comm= | grep MacOS/asyar   # older than the link = wrong build
+```
+
+Check that before believing anything a live observation says, and remember that
+`~/Library/Logs/org.asyar.app/asyar.log` is truncated by size — an event from
+twenty minutes ago may simply be gone, so `runs_history` is the more durable
+witness.
+
 ### Scheduled intervals are clamped to 10 s … 24 h
 
 **SOURCE**, `extensions/scheduler.rs`: `MIN_INTERVAL_SECS = 10`,
