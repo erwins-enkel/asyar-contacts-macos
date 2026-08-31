@@ -60,13 +60,6 @@ export interface RootResult {
   actionPayload?: unknown;
 }
 
-export interface CallPayload {
-  /** E.164 where we could get there; whatever was stored otherwise. */
-  dial: string;
-  /** Only for the confirmation toast — the handler never re-derives from it. */
-  name: string;
-}
-
 export function matchesPanelKeyword(query: string): boolean {
   const q = query.trim().toLowerCase();
   if (q.length < MIN_QUERY) return false;
@@ -76,10 +69,24 @@ export function matchesPanelKeyword(query: string): boolean {
 /**
  * Results for one root-search query.
  *
- * `viewPath` on the panel entry is what the launcher navigates to; contact rows
- * carry `actionId: 'search-call'` so Enter dials without opening anything.
- * Contacts with no dialable number are dropped rather than offered — a row
- * whose primary action cannot run is worse than no row.
+ * Every row navigates, and a contact row carries its identifier in the query
+ * string so the panel can open on that person. `viewPath` is the *only* channel:
+ * an `actionId` would never run, because `searchResultMapper` executes the
+ * host-side `action` closure first and `extensionSearchAggregator` attaches one
+ * to every Tier 2 result. A row without a `viewPath` gets that closure's
+ * fallback — `${id}/DefaultView` — which is a component this extension does not
+ * have, and the panel opens blank.
+ *
+ * Enter deliberately does not dial. The launcher's root-level Enter handler
+ * never looks at modifiers (`launcherKeyboard.ts`: `if (event.key === 'Enter')`,
+ * then a zero-argument `handleEnterKey()`), so a contact row has exactly one
+ * key and no way to offer "call" and "open" side by side. Given one key, it
+ * opens: an accidental Enter on the wrong row should cost a panel, not a phone
+ * call to a stranger.
+ *
+ * Contacts with no dialable number are still dropped. Opening one would work,
+ * but this extension exists to reach people, and a row that leads to a person
+ * you cannot reach is noise in someone else's launcher.
  */
 export function buildRootResults(
   contacts: readonly Contact[],
@@ -117,21 +124,13 @@ export function buildRootResults(
         subtitle: `${phone.label} · ${phone.display}`,
         type: 'result',
         icon: '📞',
-        actionId: 'search-call',
-        actionPayload: { dial: phone.dial, name: contact.name } satisfies CallPayload,
+        // Encoded here because the launcher pastes this straight into an
+        // iframe URL without escaping anything, and a CNContact identifier
+        // carries a colon (`<uuid>:ABPerson`).
+        viewPath: `${extensionId}/ContactsView?id=${encodeURIComponent(contact.id)}`,
       });
     });
   }
 
   return results;
-}
-
-/** Narrow an unknown payload arriving from the host back to `CallPayload`. It
- *  has crossed `postMessage` and a JSON round trip, so nothing about its shape
- *  is guaranteed by the type system. */
-export function parseCallPayload(payload: unknown): CallPayload | null {
-  if (typeof payload !== 'object' || payload === null) return null;
-  const candidate = payload as Partial<CallPayload>;
-  if (typeof candidate.dial !== 'string' || candidate.dial === '') return null;
-  return { dial: candidate.dial, name: typeof candidate.name === 'string' ? candidate.name : '' };
 }

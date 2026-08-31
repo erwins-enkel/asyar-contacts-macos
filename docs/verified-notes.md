@@ -360,6 +360,69 @@ Check that before believing anything a live observation says, and remember that
 twenty minutes ago may simply be gone, so `runs_history` is the more durable
 witness.
 
+### A root-search row has exactly one key
+
+**SOURCE**, `lib/keyboard/launcherKeyboard.ts`. The root-level handler is
+`if (event.key === 'Enter')` — no modifier is examined — and it calls
+`deps.handleEnterKey()`, which takes no arguments. So `⌘⏎`, `⇧⏎` and `⏎` are the
+same event to an extension's search result. (Inside a *view* they differ: keys
+are re-delivered as `asyar:view:keydown` with the modifier flags intact, which
+is what the panel's key map rests on.)
+
+`⌘K` is not a way around it. An extension is never told which of its rows is
+highlighted: the only highlight signal, `source: 'userHighlight'` in
+`searchOrchestrator`, is a `predictiveWarm` dispatch that carries an empty
+payload and exists to warm the iframe.
+
+Consequence for design: a contact row cannot offer "call" and "open" side by
+side. It picks one.
+
+### A row's `actionId` cancels its `viewPath`
+
+**SOURCE**, `searchOrchestrator.svelte.ts`. `tryExecuteResultAction` is consulted
+first; when the row carries an `actionId` it dispatches that and returns true,
+and the host-side `action()` built by `extensionSearchAggregator` — the one that
+would have navigated to `viewPath` — never runs. A row that must both identify
+something *and* open a view therefore has to navigate from inside its own
+handler.
+
+Which a worker can do. The api dispatcher resolves `asyar:api:<service>:<method>`
+out of the service registry, where `extensions: deps.extensionManager`
+(`buildServiceRegistry.ts`) exposes `navigateToView`. Two properties make it
+usable: `extensions` is in neither `INJECTS_EXTENSION_ID` nor
+`ALWAYS_INJECTS_CALLER_ID`, so `{ viewPath }` arrives as the sole argument; and
+the dispatcher applies no role gate, so the worker iframe may call it. The SDK's
+`ExtensionManagerProxy.navigateToView` builds exactly that envelope.
+
+### Navigating clears the query store, but not the search bar
+
+Half of this was written from the source and turned out to be wrong on screen,
+so both halves are recorded.
+
+**SOURCE**, `viewManager.svelte.ts`: `searchStores.query = ''` on navigation,
+with the previous text kept in `initialMainQuery` and restored on escape.
+
+**OBSERVED**, and the reason that is not the whole story: a panel entered from a
+root-search hit opens with the typed text still in the bar and still filtering.
+The input keeps a second, separate value — `state.localSearchValue` — and
+`searchController.svelte.ts` feeds a searchable view from *that*:
+
+```ts
+} else if (state.activeViewVal && state.activeViewSearchableVal && …) {
+  extensionManager.handleViewSearch(state.localSearchValue);
+}
+```
+
+Two consequences for an extension. A panel opened from a result row is already
+filtered by the query that produced the row, so it does not have to guess what
+the user was looking for. And the first `asyar:view:search` it receives is that
+replay, not someone typing — anything that should survive the opening (here: the
+narrowing to one contact) has to treat the first message as the query that *led*
+here. `adoptFocusQuery` in `selection.ts` is that rule.
+
+`pinSelected` guards the other direction: should the panel ever open unfiltered,
+its 200-row cap would hide a preselected person further down the alphabet.
+
 ### Scheduled intervals are clamped to 10 s … 24 h
 
 **SOURCE**, `extensions/scheduler.rs`: `MIN_INTERVAL_SECS = 10`,

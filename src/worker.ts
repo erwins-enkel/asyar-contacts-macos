@@ -42,15 +42,13 @@ import type {
 import manifest from '../manifest.json';
 import { readIndex, writeIndex } from './contacts/cache';
 import { loadIndex } from './contacts/loader';
-import { buildRootResults, parseCallPayload } from './contacts/rootSearch';
+import { buildRootResults } from './contacts/rootSearch';
 import {
   decideScheduledRefresh,
   hasContactHit,
   isScheduledTick,
 } from './contacts/refreshPolicy';
-import { reachUrl } from './contacts/phone';
 import type { Contact } from './contacts/types';
-import { openExternal } from './opener';
 
 const FALLBACK_ID = 'dev.erwins-enkel.contacts';
 
@@ -252,21 +250,11 @@ extensionBridge.registerActionHandler(extensionId, 'reload-contacts', async () =
   await refreshIndex(true);
 });
 
-// Enter on a contact row in root search. The payload has crossed postMessage
-// and a JSON round trip, so it is re-validated rather than trusted.
-extensionBridge.registerActionHandler(extensionId, 'search-call', async (payload) => {
-  const call = parseCallPayload(payload);
-  if (call === null) {
-    log.warn(`[${extensionId}] search-call fired without a usable number`);
-    return;
-  }
-  const url = reachUrl('call', call.dial);
-  if (url === null) return;
-  const route = await openExternal(url);
-  if (route === 'failed') {
-    log.error(`[${extensionId}] search-call: opener:open failed for ${call.dial}`);
-  }
-});
+// Enter on a contact row in root search needs no handler here. The launcher
+// never dispatches an `actionId` for a search result — `searchResultMapper`
+// runs the host-side `action` closure first, and `extensionSearchAggregator`
+// gives every Tier 2 result one — so the row navigates instead, carrying the
+// contact identifier in its `viewPath`. See `contacts/viewRoute.ts`.
 
 // The panel writes a fresh index straight to the cache; without this the
 // worker's copy would sit stale until the next scheduled refresh — up to half

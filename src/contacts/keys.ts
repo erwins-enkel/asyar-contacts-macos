@@ -89,3 +89,10 @@ export const SHORTCUT_HINTS: ReadonlyArray<{ keys: string; label: string }> = [
   { keys: '⇧⏎', label: 'Copy' },
   { keys: '⇧⌘⏎', label: 'Contacts app' },
 ];
+
+/** The hints to print under a panel. Opened on one contact there is no list,
+ *  so the key that steps through it is left out rather than shown doing
+ *  nothing. Returns the shared array unchanged in the ordinary case. */
+export function hintsFor(focused: boolean): ReadonlyArray<{ keys: string; label: string }> {
+  return focused ? SHORTCUT_HINTS.filter((hint) => hint.keys !== '↑ ↓') : SHORTCUT_HINTS;
+}

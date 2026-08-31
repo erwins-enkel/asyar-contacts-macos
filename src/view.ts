@@ -21,6 +21,7 @@ import {
 } from 'asyar-sdk/view';
 import manifest from '../manifest.json';
 import ContactsView from './ContactsView.svelte';
+import { parseViewRoute } from './contacts/viewRoute';
 
 const FALLBACK_ID = 'dev.erwins-enkel.contacts';
 
@@ -88,8 +89,15 @@ void (async () => {
   await viewExtension.activate();
 })();
 
-const viewName = new URLSearchParams(window.location.search).get('view');
+const route = parseViewRoute(window.location.search);
 const target = document.getElementById('app');
-if (viewName === 'ContactsView' && target) {
-  mount(ContactsView, { target, props: { context, extensionId } });
+// Mounted for anything Asyar asks for, not just the name we expect. This
+// extension has exactly one panel, and the launcher has a fallback path that
+// asks for `DefaultView` — a component nobody here declares. Insisting on the
+// name turned that into a blank rectangle with no way to tell what went wrong.
+if (target) {
+  mount(ContactsView, {
+    target,
+    props: { context, extensionId, initialSelection: route.selection },
+  });
 }

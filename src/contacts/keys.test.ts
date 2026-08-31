@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest';
-import { intentFor } from './keys';
+import { SHORTCUT_HINTS, hintsFor, intentFor } from './keys';
 
 describe('intentFor', () => {
   it('walks the list with the vertical arrows', () => {
@@ -75,5 +75,20 @@ describe('intentFor', () => {
     expect(intentFor({ key: 'c', metaKey: true }, 'call')).toBeNull();
     expect(intentFor({ key: 'Escape' }, 'call')).toBeNull();
     expect(intentFor({ key: 'Tab' }, 'call')).toBeNull();
+  });
+});
+
+describe('hintsFor', () => {
+  it('offers every key while the list is there to move through', () => {
+    expect(hintsFor(false)).toBe(SHORTCUT_HINTS);
+  });
+
+  it('drops the contact-stepping hint when one contact is shown alone', () => {
+    // Opened on a single person there is no list, so ↑ ↓ have nothing to step
+    // through. A hint for a key that does nothing is worse than no hint.
+    const keys = hintsFor(true).map((hint) => hint.keys);
+    expect(keys).not.toContain('↑ ↓');
+    expect(keys).toContain('← →');
+    expect(keys).toContain('⏎');
   });
 });

@@ -28,7 +28,7 @@
 
   import { clearIndex, isStale, readIndex, writeIndex } from './contacts/cache';
   import { diagnoseError, diagnoseFailure, type Diagnosis } from './contacts/diagnose';
-  import { intentFor, SHORTCUT_HINTS, type Intent } from './contacts/keys';
+  import { hintsFor, intentFor, type Intent } from './contacts/keys';
   import {
     checkAuthorization,
     loadIndex,
@@ -37,11 +37,29 @@
   } from './contacts/loader';
   import { addressBookUrl, mailUrl, reachUrl, type ReachAction } from './contacts/phone';
   import { filterContacts } from './contacts/search';
-  import { cycleIndex, moveSelection, settleSelection } from './contacts/selection';
+  import {
+    adoptFocusQuery,
+    cycleIndex,
+    focusList,
+    moveSelection,
+    pickInitialSelection,
+    pinSelected,
+    settleSelection,
+  } from './contacts/selection';
   import { AUTH, type Contact, type PhoneNumber } from './contacts/types';
   import { openExternal } from './opener';
 
-  let { context, extensionId }: { context: ExtensionContext; extensionId: string } = $props();
+  let {
+    context,
+    extensionId,
+    initialSelection = null,
+  }: {
+    context: ExtensionContext;
+    extensionId: string;
+    /** The contact a root-search row asked for, straight out of the view path.
+     *  `null` for every other way of opening the panel. */
+    initialSelection?: string | null;
+  } = $props();
 
   /** The DOM holds this many rows at most. A 2700-row address book renders
    *  fine once and scrolls badly forever after; the cap keeps the panel
@@ -90,8 +108,19 @@
   const shell = (): IShellService => context.getService<IShellService>('shell');
 
   // ── Derived list ──────────────────────────────────────────────────────
-  let matched = $derived(filterContacts(contacts, query));
-  let rows = $derived(matched.slice(0, MAX_ROWS));
+  //
+  // A panel opened on one person shows that person until the user searches
+  // again. `focusedId` holds them; `focusQuery` remembers the text the launcher
+  // replayed into the bar, so the replay does not read as typing.
+  let focusedId = $state<string | null>(null);
+  let focusQuery: string | null = null;
+
+  let matched = $derived(focusList(contacts, focusedId) ?? filterContacts(contacts, query));
+  // `matched` is what the filter left; `rows` is what fits. `pinSelected`
+  // rescues a contact that root search chose but the cap would have hidden —
+  // it pins against `matched`, so typing a filter that excludes the person
+  // still lets the highlight go, as it should.
+  let rows = $derived(pinSelected(matched.slice(0, MAX_ROWS), matched, selectedId));
   let hiddenCount = $derived(matched.length - rows.length);
   let visibleIds = $derived(rows.map((c) => c.id));
   let selected = $derived(rows.find((c) => c.id === selectedId) ?? null);
@@ -158,11 +187,25 @@
     statusDetail = diagnosis.detail;
   }
 
+  /** Honoured once, on whichever read lands first — the cache on a warm open,
+   *  the address book on a cold one. Cleared afterwards so a later refresh does
+   *  not drag the highlight back to where the panel opened ten minutes ago. */
+  let wantedSelection: string | null = initialSelection;
+
   function applyIndex(next: Contact[], at: number): void {
     contacts = next;
     indexedAt = at;
     status = 'ready';
     statusDetail = '';
+
+    if (wantedSelection !== null) {
+      const picked = pickInitialSelection(next, wantedSelection);
+      if (picked !== null) {
+        selectedId = picked;
+        focusedId = picked;
+      }
+      wantedSelection = null;
+    }
   }
 
   /** Read the address book and replace the index. `silent` keeps the already
@@ -425,6 +468,12 @@
     const next = data?.payload?.query;
     if (typeof next !== 'string') return;
     query = next;
+
+    if (focusedId !== null) {
+      const verdict = adoptFocusQuery(focusQuery, next);
+      focusQuery = verdict.seen;
+      if (!verdict.keepFocus) focusedId = null;
+    }
   }
 
   /** The DOM path, for when focus is genuinely inside the iframe — which only
@@ -727,7 +776,8 @@
       </div>
     </div>
   {:else}
-    <div class="body">
+    <div class="body" class:solo={focusedId !== null}>
+      {#if focusedId === null}
       <div class="list" bind:this={containerEl}>
         {#if rows.length === 0}
           <p class="empty">No contact matches “{query}”.</p>
@@ -762,6 +812,7 @@
           {/if}
         {/if}
       </div>
+      {/if}
 
       <aside class="detail">
         {#if selected === null}
@@ -822,7 +873,7 @@
 
     <footer class="footer">
       <div class="hints">
-        {#each SHORTCUT_HINTS as hint (hint.keys)}
+        {#each hintsFor(focusedId !== null) as hint (hint.keys)}
           <span class="hint"><kbd>{hint.keys}</kbd>{hint.label}</span>
         {/each}
       </div>
@@ -831,7 +882,8 @@
           <span class="notice">{notice}</span>
         {:else}
           <span class="muted">
-            {matched.length} of {contacts.length}
+            {#if focusedId === null}{matched.length} of {contacts.length}{:else}Type to search
+              all {contacts.length}{/if}
             {#if refreshing}· refreshing …{:else if indexedAt !== null}· {freshness(indexedAt)}{/if}
           </span>
         {/if}
@@ -841,6 +893,17 @@
 </main>
 
 <style>
+  /* The panel is exactly the iframe, and nothing outside it scrolls. Without
+     this the document keeps its default 8px body margin, `height: 100vh` then
+     overflows it, and the launcher shows a second scrollbar beside the one the
+     list or the detail already has. */
+  :global(html),
+  :global(body) {
+    height: 100%;
+    margin: 0;
+    overflow: hidden;
+  }
+
   .panel {
     display: flex;
     flex-direction: column;
@@ -942,6 +1005,38 @@
   }
 
   /* ── Detail ───────────────────────────────────────────────────────── */
+  /* Opened on one person the detail *is* the panel, and it is laid out for
+     that: the head turns sideways and the values run in two columns, because
+     the sidebar's stacked-and-centred arrangement was built for a 15rem strip
+     and in the full width it becomes a tall ribbon that scrolls for no
+     reason. */
+  .body.solo .detail {
+    flex: 1 1 auto;
+    max-width: 40rem;
+    margin: 0 auto;
+    padding: var(--space-4);
+    border-left: none;
+    background: transparent;
+  }
+
+  .body.solo .detail-head {
+    flex-direction: row;
+    align-items: center;
+    gap: var(--space-3);
+    text-align: left;
+    margin-bottom: var(--space-2);
+  }
+
+  .body.solo .detail-name {
+    font-size: var(--font-size-lg);
+  }
+
+  .body.solo .values {
+    display: grid;
+    grid-template-columns: repeat(auto-fit, minmax(14rem, 1fr));
+    gap: var(--space-1) var(--space-2);
+  }
+
   .detail {
     flex: 0 0 15rem;
     min-width: 0;

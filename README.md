@@ -30,9 +30,26 @@ letters.
 
 ### From the launcher, without opening the panel
 
-Typing a name straight into Asyar offers the person, and Enter dials — no panel
-in between. The worker answers that from an in-memory copy of the index, because
-the launcher caps the whole extension-search round at 200 ms.
+Typing a name straight into Asyar offers the person, and Enter opens **that one
+contact** — no list beside it, just the card: photo, name, every number and every
+address. `←` `→` picks a number, `⏎` calls. Type again and the full address book
+comes back. The worker answers the search from an in-memory copy of the index,
+because the launcher caps the whole extension-search round at 200 ms.
+
+The identifier travels in the view path (`…/ContactsView?id=…`), because that is
+the only channel there is. A search result's `actionId` is never dispatched:
+`searchResultMapper` runs the host-side `action` closure first, and
+`extensionSearchAggregator` gives every Tier 2 result one. A row without a
+`viewPath` gets that closure's fallback, `<id>/DefaultView` — a component this
+extension does not have, which is why such a row used to open a blank panel.
+
+Enter does not dial from the launcher, and that is a constraint rather than a
+preference. A result row gets exactly one key: the launcher's root-level Enter
+handler never reads modifier flags (`launcherKeyboard.ts`: `if (event.key ===
+'Enter')`, then a zero-argument `handleEnterKey()`), and an extension is not told
+which row is highlighted, so `⌘K` cannot carry a per-row action either. Given one
+key, it opens — an Enter on the wrong row should cost a panel, not a call to a
+stranger.
 
 The same path solves a discoverability problem. Asyar matches a command by its
 `name` and nothing else (`trigger` is stored but never searched, and there is no

@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest';
-import { buildRootResults, matchesPanelKeyword, parseCallPayload } from './rootSearch';
+import { buildRootResults, matchesPanelKeyword } from './rootSearch';
 import type { Contact } from './types';
 
 const EXT = 'dev.erwins-enkel.contacts';
@@ -63,11 +63,36 @@ describe('buildRootResults', () => {
   it('offers matching people with a dialable number', () => {
     const results = buildRootResults(people, 'mustermann', EXT);
     expect(results.map((r) => r.title)).toEqual(['Erika Mustermann', 'Max Mustermann']);
-    expect(results[0]!.actionId).toBe('search-call');
-    expect(results[0]!.actionPayload).toEqual({
-      dial: '+491721234567',
-      name: 'Erika Mustermann',
-    });
+  });
+
+  it('opens the contact rather than dialling it', () => {
+    // Enter is the launcher's only key on a result row — it carries no
+    // modifier the extension could see — so it may not place a call. The row
+    // navigates, and carries the identifier so the panel opens on the person.
+    const results = buildRootResults(people, 'mustermann', EXT);
+    expect(results[0]!.viewPath).toBe(`${EXT}/ContactsView?id=Erika%20Mustermann`);
+  });
+
+  it('percent-encodes the identifier, which macOS builds with a colon in it', () => {
+    // A CNContact identifier looks like "<uuid>:ABPerson". The launcher pastes
+    // the view path into an iframe URL without encoding anything, so the row
+    // has to arrive already safe.
+    const withColon = { ...contact('Erika Mustermann'), id: 'AB-12:ABPerson' };
+    const results = buildRootResults([withColon], 'mustermann', EXT);
+    expect(results[0]!.viewPath).toBe(`${EXT}/ContactsView?id=AB-12%3AABPerson`);
+  });
+
+  it('carries no actionId — the launcher never runs one on a search result', () => {
+    // searchResultMapper checks the host-side `action` closure first, and
+    // extensionSearchAggregator attaches one to every Tier 2 result. An
+    // actionId here would look like it worked and never fire.
+    const results = buildRootResults(people, 'mustermann', EXT);
+    expect(results[0]!.actionId).toBeUndefined();
+  });
+
+  it('shows the number it would dial, even though Enter no longer dials it', () => {
+    const results = buildRootResults(people, 'mustermann', EXT);
+    expect(results[0]!.subtitle).toBe('Mobile · +491721234567');
   });
 
   it('drops people with no number — a row whose Enter cannot run is worse than none', () => {
@@ -102,28 +127,3 @@ describe('buildRootResults', () => {
   });
 });
 
-describe('parseCallPayload', () => {
-  it('accepts what buildRootResults produces', () => {
-    expect(parseCallPayload({ dial: '+491721234567', name: 'Erika' })).toEqual({
-      dial: '+491721234567',
-      name: 'Erika',
-    });
-  });
-
-  it('tolerates a missing name', () => {
-    expect(parseCallPayload({ dial: '+491721234567' })).toEqual({
-      dial: '+491721234567',
-      name: '',
-    });
-  });
-
-  it('refuses anything without a number to dial', () => {
-    // It has crossed postMessage and a JSON round trip; the type system
-    // guarantees nothing about what actually arrives.
-    expect(parseCallPayload(null)).toBeNull();
-    expect(parseCallPayload('+491721234567')).toBeNull();
-    expect(parseCallPayload({})).toBeNull();
-    expect(parseCallPayload({ dial: '' })).toBeNull();
-    expect(parseCallPayload({ dial: 42 })).toBeNull();
-  });
-});
