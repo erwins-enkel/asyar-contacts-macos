@@ -5,11 +5,20 @@ number is dialled through **Phone.app**, and with it your paired iPhone.
 
 The launcher command is **“Search Contacts”** — deliberately with a verb, so it is
 distinguishable from macOS' own Contacts.app in the result list. The scheduled
-background refresh is called **“Refresh address book cache”**, because Asyar offers
-no way to hide a command from search, so it must not compete on the same first
-letters.
+background refresh is called **“Refresh address book cache”** so that it does not
+compete with it on the same first letters.
+
+That name is a workaround with a shelf life. Asyar v0.1.1-43 added
+`"searchable": false` on a command, which keeps it running on schedule while
+dropping it from root search — the proper fix. It is not used here **yet**:
+`ExtensionCommand` is parsed with `deny_unknown_fields`, so that one key makes the
+whole manifest unreadable on any older launcher, and the extension would vanish
+from discovery without a word rather than reporting an incompatibility.
 
 `dev.erwins-enkel.contacts` · macOS only · reads locally, never touches the network.
+
+Requires **Asyar ≥ v0.1.1-43** (`asyarSdk: "^4.8.0"`). Older launchers refuse the
+extension with an SDK-mismatch notice.
 
 ---
 
@@ -76,7 +85,7 @@ What Enter does is configurable — see **Settings** below.
 ```bash
 npm install
 npm run build
-npx asyar link --copy      # not the bare `asyar link`, see below
+npx asyar link             # `npx asyar unlink` removes it again
 ```
 
 Then **restart Asyar**: the launcher only scans its extensions directory at startup.
@@ -145,9 +154,10 @@ from someone opening the panel, never arrive unannounced from an invisible ifram
 
 ### Dialling
 
-`messageBroker.invoke('opener:open', { url })` under `shell:open-url`. The SDK has
-no typed opener service — `getService('opener')` throws. On macOS 26 `tel:` is
-registered to Phone.app, which routes the call through the paired iPhone.
+`getService<IOpenerService>('opener').openUrl(url)` under `shell:open-url`. The
+typed service arrived in SDK 4.8.0; before that this extension built the
+`opener:open` envelope by hand. On macOS 26 `tel:` is registered to Phone.app,
+which routes the call through the paired iPhone.
 `facetime:`, `facetime-audio:`, `sms:`, `whatsapp:` and `addressbook:` are unlocked
 through `permissionArgs["shell:open-url"]`; `tel:` and `mailto:` are covered by the
 base permission.
@@ -207,21 +217,24 @@ filters the list.
 ```bash
 npm run setup      # once: enables the pre-commit hook
 npm run check      # tsc --noEmit && svelte-check && check:data
-npm test           # 94 unit tests over the pure layer
+npm test           # 145 unit tests over the pure layer
 npm run check:data # no real phone numbers/email addresses in the repo
 npm run build      # vite build + bundle check
 npm run validate   # asyar validate
 ```
 
-Run `npx asyar link --copy` again after every build; the panel loads fresh the next
-time it opens. Manifest changes need an Asyar restart.
+`npx asyar link` symlinks this directory and registers it in
+`$APPDATA/dev_extensions.json`; rebuilds are picked up the next time the panel
+opens, with no re-link. Manifest changes still need an Asyar restart.
+`npx asyar unlink` removes both again.
 
-**`asyar link --copy`, not the bare `asyar link`.** The default variant creates a
-symlink. The Rust scheme handler canonicalises the hit and checks it against
-`is_path_allowed()`; the rule that would permit arbitrary symlink targets sits behind
-`#[cfg(debug_assertions)]`. On a release build `view.html` therefore returns **403** —
-visible only as an empty panel plus `[workerRegistry] unmount … reason=timeout` in
-the log.
+**This used to require `--copy`.** The symlink variant failed on release builds:
+the Rust scheme handler canonicalises the hit and checks it against
+`is_path_allowed()`, and the rule permitting arbitrary symlink targets sat behind
+`#[cfg(debug_assertions)]`, so `view.html` returned **403** — visible only as an
+empty panel plus `[workerRegistry] unmount … reason=timeout` in the log. Since
+v0.1.1-43 the handler consults `dev_extensions.json` first, and the bare command
+works on a release build.
 
 ### No real personal data in the repository
 
