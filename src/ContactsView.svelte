@@ -35,6 +35,7 @@
     loadPhoto,
     requestAuthorization,
   } from './contacts/loader';
+  import { DEFAULT_PREFERRED_LABELS } from './contacts/normalize';
   import { addressBookUrl, mailUrl, reachUrl, type ReachAction } from './contacts/phone';
   import { filterContacts } from './contacts/search';
   import {
@@ -168,7 +169,7 @@
     return {
       primaryAction: str(values, 'primaryAction', 'call') as ReachAction,
       countryCode: str(values, 'countryCode', 'auto'),
-      preferredLabels: str(values, 'preferredLabels', 'iPhone, Mobil, Mobile, Handy, Privat'),
+      preferredLabels: str(values, 'preferredLabels', DEFAULT_PREFERRED_LABELS),
       showAvatars: bool(values, 'showAvatars', true),
       includeOrganizations: bool(values, 'includeOrganizations', true),
     };
