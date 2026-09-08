@@ -1,6 +1,6 @@
 {
   "name": "dev.erwins-enkel.contacts",
-  "version": "0.1.5",
+  "version": "0.1.6",
   "description": "macOS Contacts in Asyar \u2014 search and call through your iPhone.",
   "type": "module",
   "private": true,
@@ -8,7 +8,8 @@
     "build": "npm run check:data && vite build && node scripts/check-bundle.mjs",
     "check": "tsc --noEmit && svelte-check --threshold error && npm run check:data",
     "validate": "asyar validate",
-    "link": "asyar link --copy",
+    "link": "asyar link",
+    "unlink": "asyar unlink",
     "test": "vitest run",
     "test:watch": "vitest",
     "check:data": "node scripts/check-no-personal-data.mjs",
@@ -20,7 +21,7 @@
   "devDependencies": {
     "@sveltejs/vite-plugin-svelte": "^5.0.0",
     "@types/node": "^22.0.0",
-    "asyar-sdk": "^4.7.0",
+    "asyar-sdk": "^4.8.0",
     "svelte-check": "^4.7.6",
     "typescript": "^5.0.0",
     "vite": "^6.0.0",
