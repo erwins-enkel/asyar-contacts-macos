@@ -544,30 +544,17 @@
 
   // ⌘K drawer.
   //
-  // Tearing these down is harder than it looks, and getting it wrong is
-  // visible: the actions show up in *other* extensions' panels. Two things
-  // conspire.
+  // `extensionId` on every action is load-bearing, not decoration: the host
+  // scopes the drawer by it (`filterActionsByContext` returns
+  // `action.extensionId === currentExtensionId`) and clears an extension's
+  // view actions when the active view moves to a different one.
   //
-  //   1. The host filters the drawer by context alone.
-  //      `filterActionsByContext` in the launcher's actionService compares
-  //      `action.context === currentContext` and nothing else — so
-  //      `ActionContext.EXTENSION_VIEW` means "some extension panel is open",
-  //      not "*this* panel is open". There is no per-extension scoping to opt
-  //      into, and the `visible` predicate the host consults is host-side only.
-  //
-  //   2. The host only cleans up on the way back to the root.
-  //      `selectionEffects` calls `clearActionsForExtension` under
-  //      `currentView === null`. Navigating straight from this panel to
-  //      another extension's panel never passes through null, so nothing is
-  //      cleared.
-  //
-  // A Svelte `onDestroy` does not save us either: switching views destroys the
-  // whole iframe (`{#key extensionId}` around `ExtensionIframe`), so this
-  // component is never gracefully unmounted — its JS context simply ends.
-  //
-  // Hence `pagehide`: it fires while the frame is still alive enough to post a
-  // message, and the parent window that receives it outlives us. That is the
-  // one moment where the teardown can still be announced.
+  // Both of those arrived in Asyar v0.1.1-43. Until then `EXTENSION_VIEW` meant
+  // "some extension panel is open" rather than "*this* one", and these actions
+  // leaked into other extensions' drawers unless this component unregistered
+  // them from a `pagehide` listener. That workaround is gone; the manifest's
+  // `asyarSdk: "^4.8.0"` is what keeps it from being needed again, since an
+  // older launcher now refuses the extension outright.
   $effect(() => {
     const actions: ExtensionAction[] = [
       {
@@ -679,21 +666,13 @@
       },
     ];
 
-    let dropped = false;
-    const drop = (): void => {
-      if (dropped) return;
-      dropped = true;
-      for (const action of actions) context.unregisterAction(action.id);
-    };
-
     for (const action of actions) context.registerAction(action);
 
-    // `pagehide` covers the iframe being torn down on a view switch;
-    // the returned cleanup covers an ordinary re-render of this effect.
-    window.addEventListener('pagehide', drop);
+    // Covers an ordinary re-render of this effect. A view switch destroys the
+    // iframe outright (`{#key extensionId}` around `ExtensionIframe`), so this
+    // cleanup does not run then — the host's own teardown is what handles it.
     return () => {
-      window.removeEventListener('pagehide', drop);
-      drop();
+      for (const action of actions) context.unregisterAction(action.id);
     };
   });
 
