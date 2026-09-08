@@ -13,6 +13,11 @@ export interface RawLabeled {
   l: string;
   /** The number or address exactly as macOS stores it. */
   v: string;
+  /** The name inside macOS' own label sentinel — "Mobile", "Home", "HomeFax" —
+   *  which reads the same in every system language, unlike `l`. Present only
+   *  for those labels: `iPhone` and `Apple Watch` are never translated, and a
+   *  label the user typed has no canonical form at all. */
+  k?: string;
 }
 
 /** One contact as `CONTACTS_JXA` emits it. See `src/contacts/jxa.ts`. */
@@ -96,4 +101,7 @@ export interface ContactIndex {
   contacts: Contact[];
 }
 
-export const INDEX_VERSION = 1;
+/** Bumped to 2 when number ordering moved from the localized label text to
+ *  macOS' language-independent label keys: an index cached under the old rules
+ *  is still readable, but sorted by rules that no longer apply. */
+export const INDEX_VERSION = 2;

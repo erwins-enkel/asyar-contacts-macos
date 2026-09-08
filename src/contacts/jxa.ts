@@ -51,12 +51,33 @@ function emit(o) {
 // Localizing a label is a framework call, and the same handful of labels
 // ("_$!<Mobile>!$_", "_$!<Work>!$_", …) repeat across thousands of records.
 // Memoizing turns tens of thousands of bridge crossings into a dozen.
+//
+// Both halves are worth keeping. The localized form is what the panel shows,
+// and it is "Handy" on a German Mac, "Portable" on a French one. The raw form
+// is the same string everywhere, which is what makes the number order
+// language-independent — so the sentinel brackets come off and the name inside
+// travels as "k".
+//
+// "k" is emitted exactly when those brackets were there, which is precisely
+// macOS' own labels. "iPhone" and "Apple Watch" carry no brackets and are not
+// translated, so their "l" is already canonical; a label the user typed has no
+// brackets either, and there the text is all there is. Nothing here decides
+// what a label *means* — that is normalize.ts, where it can be tested.
+//
+// (No backticks in this comment on purpose: everything from here to the closing
+// delimiter is one String.raw template, and a backtick would end it.)
 var LABELS = {};
-function localizedLabel(raw) {
-  if (!raw || raw.isNil()) return '';
+function labelParts(raw) {
+  if (!raw || raw.isNil()) return null;
   var key = s(raw);
-  if (key === '') return '';
-  if (!(key in LABELS)) LABELS[key] = s($.CNLabeledValue.localizedStringForLabel(raw));
+  if (key === '') return null;
+  if (!(key in LABELS)) {
+    var canonical = '';
+    if (key.length > 8 && key.slice(0, 4) === '_$!<' && key.slice(-4) === '>!$_') {
+      canonical = key.slice(4, -4);
+    }
+    LABELS[key] = { l: s($.CNLabeledValue.localizedStringForLabel(raw)), k: canonical };
+  }
   return LABELS[key];
 }
 
@@ -67,7 +88,11 @@ function labeled(list, valueFn) {
   for (var i = 0; i < n; i++) {
     var lv = list.objectAtIndex(i);
     var value = valueFn(lv.value);
-    if (value) out.push({ l: localizedLabel(lv.label), v: value });
+    if (!value) continue;
+    var parts = labelParts(lv.label);
+    var entry = { l: parts ? parts.l : '', v: value };
+    if (parts && parts.k) entry.k = parts.k;
+    out.push(entry);
   }
   return out;
 }

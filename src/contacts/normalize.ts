@@ -19,6 +19,15 @@ export interface NormalizeOptions {
   includeOrganizations: boolean;
 }
 
+/** The `preferredLabels` default, mirrored from `manifest.json`.
+ *
+ *  Four English words are enough because ranking goes through the label *key*
+ *  (`_$!<Mobile>!$_`), not the localized text — see `labelRank`. The view and
+ *  the worker fall back to this when `preferences.refresh()` rejects, which is
+ *  the permission case `diagnose.ts` handles; a test holds it against the
+ *  manifest so the two cannot drift apart again. */
+export const DEFAULT_PREFERRED_LABELS = 'iPhone, Mobile, Home, Work';
+
 /** `"iPhone, Mobil, Privat"` → `["iphone", "mobil", "privat"]`. Blank entries
  *  are dropped so a trailing comma cannot create an empty rule that matches
  *  every unlabelled number. */
@@ -31,6 +40,13 @@ export function parsePreferredLabels(raw: string): string[] {
 
 /** Where a label sorts. Lower is dialled first.
  *
+ *  The label arrives twice: `key` is what macOS calls it in every language
+ *  ("Mobile"), `label` is what it shows the user ("Handy" on a German Mac,
+ *  "Portable" on a French one). The key is asked first, which is the whole
+ *  reason the preference can be four English words and still order a
+ *  Portuguese address book correctly. Labels the user typed have no key, and
+ *  for those the text is still the only thing there is.
+ *
  *  Exact preference match wins outright. A containment match ("Fax Arbeit"
  *  against a preference for "Arbeit") lands half a step below its exact
  *  counterpart, so a work phone always outranks the work fax rather than
@@ -39,13 +55,21 @@ export function parsePreferredLabels(raw: string): string[] {
  *
  *  Fax goes last unconditionally, ahead of nothing. This panel's Enter key
  *  places a call, and a fax machine is the one number in an address book that
- *  must never be the default. */
-function labelRank(label: string, preferred: string[]): number {
+ *  must never be the default. `_$!<HomeFax>!$_` says so in Japanese too, where
+ *  the localized text no longer contains the word. */
+function labelRank(label: string, key: string | undefined, preferred: string[]): number {
+  const canonical = (key ?? '').trim().toLowerCase();
   const needle = label.trim().toLowerCase();
   const unknown = preferred.length;
 
-  if (needle.includes('fax')) return unknown + 2;
-  if (needle === '') return unknown;
+  if (canonical.includes('fax') || needle.includes('fax')) return unknown + 2;
+  if (canonical === '' && needle === '') return unknown;
+
+  // The key is matched exactly and never by containment: "homefax" must not
+  // half-match a preference for "home", and the fax rule above has already
+  // taken every case where it would.
+  const byKey = canonical === '' ? -1 : preferred.indexOf(canonical);
+  if (byKey !== -1) return byKey;
 
   const exact = preferred.indexOf(needle);
   if (exact !== -1) return exact;
@@ -74,9 +98,12 @@ export function displayName(raw: RawContact): string {
 }
 
 function toPhones(raw: RawContact, options: NormalizeOptions): PhoneNumber[] {
+  // The key rides alongside rather than into `PhoneNumber`: it decides the
+  // order here, once, and what the row shows is the localized text.
   const entries = (raw.p ?? [])
     .map((item, index) => ({
       index,
+      key: item.k,
       phone: {
         label: item.l.trim() === '' ? 'Phone' : item.l.trim(),
         display: item.v.trim(),
@@ -88,8 +115,8 @@ function toPhones(raw: RawContact, options: NormalizeOptions): PhoneNumber[] {
   // Stable sort by label preference: `index` breaks ties so two numbers with
   // the same label keep the order the address book gave them.
   entries.sort((a, b) => {
-    const rank = labelRank(a.phone.label, options.preferredLabels) -
-      labelRank(b.phone.label, options.preferredLabels);
+    const rank = labelRank(a.phone.label, a.key, options.preferredLabels) -
+      labelRank(b.phone.label, b.key, options.preferredLabels);
     return rank !== 0 ? rank : a.index - b.index;
   });
 

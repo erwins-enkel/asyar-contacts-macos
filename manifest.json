@@ -1,7 +1,7 @@
 {
   "id": "dev.erwins-enkel.contacts",
   "name": "Contacts",
-  "version": "0.1.4",
+  "version": "0.1.5",
   "type": "extension",
   "description": "macOS Contacts in Asyar: search contacts and dial them through your iPhone.",
   "author": "Kai Osthoff",
@@ -79,8 +79,8 @@
       "name": "preferredLabels",
       "type": "textfield",
       "title": "Preferred numbers",
-      "description": "Comma-separated label order deciding which number is dialled first.",
-      "default": "iPhone, Mobile, Mobil, Handy, Home, Privat, Work, Arbeit",
+      "description": "Comma-separated label order deciding which number is dialled first. Matches macOS' own labels in any system language, so these English names also cover \"Handy\", \"Privat\" or \"Portable\".",
+      "default": "iPhone, Mobile, Home, Work",
       "placeholder": "iPhone, Mobile, Home"
     },
     {

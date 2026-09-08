@@ -1,6 +1,6 @@
 {
   "name": "dev.erwins-enkel.contacts",
-  "version": "0.1.0",
+  "version": "0.1.5",
   "description": "macOS Contacts in Asyar \u2014 search and call through your iPhone.",
   "type": "module",
   "private": true,
