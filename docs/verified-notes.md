@@ -5,6 +5,18 @@ What this project actually knows about Asyar and macOS Contacts, and how it know
 **As of:** 2026-08-20 · Asyar `0.1.1-42` (`/Applications/asyar.app`, `org.asyar.app`) ·
 `asyar-sdk` 4.7.0 · macOS 26.5.1 · Node 24 · vite 6.4.3 · Svelte 5 · TypeScript 5.
 
+**Amended 2026-09-08**, after [issue #1] announced that four of the findings below
+had been addressed upstream. The amendments were read in `asyar-sdk@4.10.0` (npm)
+and in shallow clones of `Xoshbin/asyar` at tags `v0.1.1-42`, `v0.1.1-43` and
+`v0.1.1-45` — **on Linux, with no launcher running**. They are therefore **SOURCE**
+throughout, and say so. The original OBSERVED findings are left standing as the
+dated record of what was true at the time; they are amended, not rewritten. What
+still wants a Mac is listed under [Still to re-observe](#still-to-re-observe); the table
+under [Upstream](#upstream-what-sdk-v480--v011-43-changes) indexes which release retired
+which finding.
+
+[issue #1]: https://github.com/erwins-enkel/asyar-contacts-macos/issues/1
+
 | Marker | Meaning |
 | --- | --- |
 | **OBSERVED** | Executed on this machine and watched happen. |
@@ -208,13 +220,30 @@ Trust the panel for this question, not a log grep. `looksLikePermissionProblem`
 in `src/contacts/diagnose.ts` catches both wordings because it tests for the word
 `permission` rather than for a sentence.
 
-### `asyar link --copy`, not the bare `asyar link`
+### `asyar link --copy`, not the bare `asyar link` — fixed in v0.1.1-43
 
 **SOURCE**, `uri_schemes.rs`. The symlink variant fails on a release build: the
 scheme handler canonicalises the hit and checks it against `is_path_allowed()`;
 the rule for arbitrary symlink targets sits behind `#[cfg(debug_assertions)]`.
 The result would be **403** for `view.html` — visible only as an empty panel and
 `[workerRegistry] unmount … reason=timeout` in the log.
+
+**Amended 2026-09-08. SOURCE**, `uri_schemes.rs` at `v0.1.1-45`. The handler now
+consults a dev registry *before* the allowlist — lookup source 0 of its documented
+order:
+
+```rust
+let dev_registry_file = app_data_dir.join("dev_extensions.json");
+// … if let Some(base_path) = dev_extensions.get(extension_id) { … }
+```
+
+`asyar link` writes that file itself (`cli/commands/link.js`, `updateDevExtensions`
+→ write-to-temp-then-`renameSync`, so a torn file cannot be read), and `asyar
+unlink` deletes both the symlink and the registry entry. The bare command is
+therefore correct on a release build, and `package.json` no longer passes `--copy`.
+
+Worth keeping in mind: the registry is keyed by extension **id**, so renaming the id
+strands the old entry. `asyar unlink` before changing an id, not after.
 
 ### A renamed command keeps its old name in search
 
@@ -245,7 +274,7 @@ if d.get('trigger'): d['trigger'] = d['name']   # trigger defaults to the name
 **OBSERVED:** set that way, the new name survives a restart and `usageCount`
 stays put.
 
-### ⌘K actions leak into other extensions' panels
+### ⌘K actions leak into other extensions' panels — fixed in v0.1.1-43
 
 **OBSERVED** (this extension's actions “Call”, “FaceTime”, “WhatsApp” … appeared
 in the ⌘K drawer of the **Scripts** view), explained by **SOURCE**. Two things
@@ -298,6 +327,38 @@ deeplink then no longer switches the view.
 exactly three message types — `asyar:view:search`, `asyar:view:submit`,
 `asyar:view:keydown`. No `viewDeactivated`, no `onHide`. The `context.onHide(...)`
 from the ShellService example in the docs does not exist in the SDK.
+
+**Amended 2026-09-08. SOURCE**, read at `v0.1.1-45`. Both halves are fixed, and the
+second one landed as the correction sketched above — near enough verbatim.
+
+`filterActionsByContext` now scopes by extension instead of by context alone:
+
+```ts
+if (action.context === ActionContext.EXTENSION_VIEW) {
+  if (this.currentExtensionId && action.extensionId) {
+    return action.extensionId === this.currentExtensionId;
+  }
+  return !action.extensionId;
+}
+```
+
+and `selectionEffects.svelte.ts` effect 7 clears on a *change* of extension rather
+than on the way back to the root:
+
+```ts
+if (previousExtId && previousExtId !== currentExtId) {
+  actionService.clearActionsForExtension(previousExtId);
+}
+```
+
+Note what carries the scoping: `extensionId` on each registered action. It is no
+longer optional decoration, and an action registered without it now falls into the
+`return !action.extensionId` branch — visible in *every* extension's drawer.
+
+The `pagehide` listener is therefore gone from `ContactsView.svelte`. What keeps it
+from being needed again is `asyarSdk: "^4.8.0"` in the manifest: a launcher older
+than -43 bundles an older SDK and refuses the extension with
+`CompatibilityStatus::SdkMismatch` instead of running it with the leak.
 
 ### Command search matches the name and nothing else
 
@@ -482,7 +543,7 @@ helper exits 0 either way, so the launcher files a refused read as a green
 “Done”; and a scheduler that retries on a clock will spawn a doomed `osascript`
 forever. Both are handled — see `AUTH_BACKOFF_MS` in `refreshPolicy.ts`.
 
-### Commands cannot be hidden from search
+### Commands cannot be hidden from search — fixed in v0.1.1-43, not yet adopted
 
 **SOURCE**, `ExtensionCommand` in `extensions/mod.rs`. There is no `hidden`, no
 `excludeFromSearch` — the legal fields are `id`, `name`, `description`,
@@ -502,6 +563,34 @@ with the real one. Back when this extension shipped a German UI, the scheduled
 cache refresh was called “Kontakte aktualisieren” and outranked the actual
 command “Kontakte durchsuchen” on the input `kon`. Renaming it to “Refresh
 address book cache” put it out of the way, with no change to its schedule.
+
+**Amended 2026-09-08. SOURCE**, read at `v0.1.1-43` and `v0.1.1-45`.
+`ExtensionCommand` gained the field:
+
+```rust
+/// If false, this command is excluded from root search indexing.
+#[serde(default)]
+pub searchable: Option<bool>,
+```
+
+`ExtensionLoader.syncCommandIndex` drops those commands before the index sync
+(`.filter((c) => c.cmd.searchable !== false)`), and because that sync diffs against
+the currently indexed `cmd_` ids and deletes what is missing, an *already indexed*
+command disappears on the next start. No hand-editing of `search_index.db`, unlike
+the rename case above.
+
+**Not adopted here yet, and the reason is a trap worth recording.**
+`ExtensionCommand` is declared `#[serde(rename_all = "camelCase", deny_unknown_fields)]`
+— **checked at `v0.1.1-42` as well as -43**. On any launcher older than -43 the key
+`"searchable"` inside a command therefore makes the *entire manifest* fail to parse,
+and the extension drops out of discovery silently. It does not degrade to an
+unsearchable command, and it does not produce the polite `SdkMismatch` notice that
+`asyarSdk` yields, because the parse fails before compatibility is ever evaluated.
+
+So `asyarSdk: "^4.8.0"` cannot cover this one the way it covers the opener service
+and the ⌘K scoping. Adopting it means accepting that everyone on -42 or older loses
+the extension without being told why. Deferred until -43 has had time to roll out;
+the command keeps its collision-avoiding name until then.
 
 ### `platforms` is spelled `macos`, not `mac`
 
@@ -529,13 +618,30 @@ similar only reach the iframe once focus is already inside it, via a mouse click
 Consequence: the highlight has to be pure state. `.focus()` on a row would take
 focus off the search bar and end the typing that drives the filter.
 
-### There is no opener service
+### There is no opener service — fixed in SDK 4.8.0
 
 **SOURCE** plus **OBSERVED** through a connected call.
 `ctx.getService('opener')` throws — `opener` is in no proxy bag. The route is
 `messageBroker.invoke('opener:open', { url })` under `shell:open-url`.
 `messageBroker` comes from `asyar-sdk/contracts`, so it is reachable from the
 worker too.
+
+**Amended 2026-09-08. SOURCE**, `asyar-sdk@4.10.0` as installed. `IOpenerService`
+is a typed service in **both** proxy bags — `ExtensionContext.js` (view) and
+`worker.js` — so the worker keeps the reach it had. The proxy is a thin wrapper
+over exactly the call this extension was already making:
+
+```js
+openUrl(url) { return this.broker.invoke('opener:open', { url }); }
+```
+
+**One consequence that is not cosmetic:** the proxy passes *no* timeout, so
+`openUrl()` inherits the SDK's ambient 10 s. This extension had deliberately used
+3 s, on the grounds that handing a URL to LaunchServices is local and a host that
+has not answered in three seconds is not routing `opener:open` at all. `src/opener.ts`
+therefore keeps that guard by racing the service call against a timer, rather than
+calling the service bare. Checked at 4.8.0 and again at 4.10.0 — still no timeout
+parameter.
 
 ### Manifest pitfalls
 
@@ -590,3 +696,30 @@ manifest has parsed. See #4.
   the same handful of lines as WhatsApp.
 - **The label keys, seen rather than reasoned.** The command above, run on this Mac —
   see "Number labels carry a language-independent name".
+
+---
+
+## Still to re-observe
+
+Everything amended on 2026-09-08 is **SOURCE**: read in the released SDK and in the
+launcher at its release tags, on Linux, with no Asyar running. The code says these
+work. Nobody has watched them work. Until someone has, on the Mac:
+
+- [ ] **Bare `asyar link` against the release build.** The panel must paint, not sit
+      empty with `[workerRegistry] unmount … reason=timeout` in the log. This is the
+      one that used to fail with a 403, so it is the one most worth doing first.
+- [ ] **`asyar unlink`.** Symlink gone from the extensions directory *and* the entry
+      gone from `$APPDATA/dev_extensions.json`.
+- [ ] **The ⌘K leak, by the original recipe.** Open the contacts panel, switch
+      directly to another extension's panel without passing through the root, press
+      ⌘K there. No “Call”, no “WhatsApp”. This now rests entirely on the host, since
+      the `pagehide` listener that used to guarantee it has been removed.
+- [ ] **A placed call through `IOpenerService`.** Enter on a highlighted contact, and
+      the overlay says “with your iPhone”. Confirms the typed service carries the
+      `shell:open-url` permission the same way the hand-built envelope did.
+- [ ] **The 3 s notice.** Harder to stage deliberately; worth watching for rather
+      than constructing. If an open ever fails, the message should appear in about
+      three seconds, not ten.
+- [ ] **The SDK gate.** On a launcher older than -43, the extension should be
+      refused with an SDK-mismatch notice rather than half-working. Only checkable
+      if an old build is still around; not worth downgrading for.
