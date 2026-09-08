@@ -23,6 +23,7 @@
     type ExtensionContext,
     type ICacheService,
     type IClipboardHistoryService,
+    type IOpenerService,
     type IShellService,
   } from 'asyar-sdk/contracts';
 
@@ -353,7 +354,8 @@
   /** Hand a URL to macOS, then get out of the way. The launcher stays open on
    *  failure so the message is readable. */
   async function launch(url: string, failure: string): Promise<void> {
-    const route = await openExternal(url);
+    const opener = context.getService<IOpenerService>('opener');
+    const route = await openExternal(opener, url);
     if (route === 'failed') {
       showNotice(failure);
       return;
