@@ -103,7 +103,7 @@ consent dialog rather than arriving unannounced later from the background worker
 | --- | --- | --- |
 | Enter key | Call | what `⏎` triggers — call, FaceTime, message, WhatsApp or copy |
 | Country code | `auto` | dialing prefix for nationally stored numbers. `auto` takes the region from macOS; empty leaves numbers untouched |
-| Preferred numbers | `iPhone, Mobile, …` | the order in which number labels are picked |
+| Preferred numbers | `iPhone, Mobile, Home, Work` | the order in which number labels are picked. Four English names are enough in any system language — see below |
 | Show contact photos | on | load the photo of the highlighted contact |
 | Include companies | on | also show company-only records |
 | Refresh in the background | on | re-read the address book after use, at most every 30 minutes |
@@ -166,6 +166,28 @@ refuses and names the setting that is missing.
 
 Fax numbers always sort last. Enter dials, and a fax machine is the one number in an
 address book that must never be the default.
+
+### Labels in any language
+
+Which number `⏎` dials is decided by the **Preferred numbers** setting, matched against
+the labels macOS attaches to a number. Those labels are translated: the same mobile
+number is `Handy` on a German Mac, `portable` on a French one, `携帯電話` on a Japanese
+one. Matching the visible text would mean shipping a translation list and still missing
+the next language.
+
+macOS hands out a second form. Its own labels arrive as `_$!<Mobile>!$_`, `_$!<Home>!$_`,
+`_$!<WorkFax>!$_` — the same string in every language, with the display text derived from
+it. The helper strips the brackets and passes the name inside along with the localized
+text, and `labelRank()` in `src/contacts/normalize.ts` asks that name first. Hence a
+default of four English words that orders a Portuguese address book correctly, and a fax
+that sorts last even where the localized label no longer contains the word "fax".
+
+Two kinds of label have no such name: `iPhone` and `Apple Watch`, which macOS never
+translates, and anything typed by hand (`Handy privat`). Both are matched by their text,
+exactly as before — so a preference naming one of them keeps working.
+
+The setting is never rewritten, so a configuration saved under the old German-English
+default keeps ordering numbers the way it always did.
 
 ### Keyboard
 

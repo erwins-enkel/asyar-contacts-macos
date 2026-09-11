@@ -4,8 +4,15 @@
 // carry real people into its own repository while testing. The *structure* of
 // the numbers is real (German mobile, landline with area code, the 0049
 // spelling), because that structure is exactly what these tests exercise.
+import { readFileSync } from 'node:fs';
 import { describe, expect, it } from 'vitest';
-import { displayName, normalizeAll, normalizeContact, parsePreferredLabels } from './normalize';
+import {
+  DEFAULT_PREFERRED_LABELS,
+  displayName,
+  normalizeAll,
+  normalizeContact,
+  parsePreferredLabels,
+} from './normalize';
 import type { NormalizeOptions } from './normalize';
 import type { RawContact } from './types';
 
@@ -149,6 +156,101 @@ describe('normalizeContact', () => {
     // "müller" must find a contact stored as "Müller". German address books are
     // the reason this extension exists, so this is not an edge case.
     expect(contact.haystack).toContain('müller');
+  });
+});
+
+// macOS hands out two things per label: the text it shows the user, which is
+// translated, and the name inside `_$!<…>!$_`, which is not. Ordering goes
+// through the second, which is what lets four English preferences rank an
+// address book in any system language.
+describe('ordering by the macOS label key', () => {
+  const DEFAULT_ORDER: NormalizeOptions = {
+    ...DEFAULTS,
+    preferredLabels: parsePreferredLabels(DEFAULT_PREFERRED_LABELS),
+  };
+
+  /** The same three numbers as a German and a French Mac emit them. */
+  const german = [
+    { l: 'Arbeit', k: 'Work', v: '07131/123456' },
+    { l: 'Privat', k: 'Home', v: '07195/765432' },
+    { l: 'Handy', k: 'Mobile', v: '0172/1234567' },
+  ];
+  const french = [
+    { l: 'travail', k: 'Work', v: '07131/123456' },
+    { l: 'domicile', k: 'Home', v: '07195/765432' },
+    { l: 'portable', k: 'Mobile', v: '0172/1234567' },
+  ];
+
+  it('ranks a German address book with nothing German in the preference', () => {
+    const contact = normalizeContact(raw({ g: 'Max', f: 'Mustermann', p: german }), DEFAULT_ORDER);
+    expect(contact.phones.map((p) => p.label)).toEqual(['Handy', 'Privat', 'Arbeit']);
+  });
+
+  it('ranks a French one identically, still with nothing French in it', () => {
+    const contact = normalizeContact(raw({ g: 'Max', f: 'Mustermann', p: french }), DEFAULT_ORDER);
+    expect(contact.phones.map((p) => p.label)).toEqual(['portable', 'domicile', 'travail']);
+  });
+
+  it('shows the localized label even though the key decided the order', () => {
+    const contact = normalizeContact(raw({ g: 'A', p: german }), DEFAULT_ORDER);
+    // The row says "Handy" to a German user; "Mobile" never reaches the panel.
+    expect(contact.phones[0]!.label).toBe('Handy');
+    expect(contact.phones[0]!.dial).toBe('+491721234567');
+  });
+
+  it('puts a fax last where the localized text no longer contains "fax"', () => {
+    const contact = normalizeContact(
+      raw({
+        g: 'A',
+        p: [
+          { l: 'ファックス（勤務先）', k: 'WorkFax', v: '07131/123456' },
+          { l: '勤務先', k: 'Work', v: '07195/765432' },
+        ],
+      }),
+      DEFAULT_ORDER,
+    );
+    // Enter dials the first row, and it must not be the fax machine.
+    expect(contact.phones.map((p) => p.dial)).toEqual(['+497195765432', '+497131123456']);
+  });
+
+  it('still ranks a label the user typed, which carries no key', () => {
+    const contact = normalizeContact(
+      raw({
+        g: 'A',
+        p: [
+          { l: 'Arbeit', k: 'Work', v: '07131/123456' },
+          { l: 'Handy privat', v: '0172/1234567' },
+        ],
+      }),
+      { ...DEFAULT_ORDER, preferredLabels: parsePreferredLabels('Handy privat, Work') },
+    );
+    expect(contact.phones[0]!.label).toBe('Handy privat');
+  });
+
+  it('leaves a preference stored under the old German-first default working', () => {
+    // Nobody's saved setting is rewritten by a new manifest default, so the
+    // list that shipped before this change has to keep ordering correctly.
+    const contact = normalizeContact(raw({ g: 'A', p: german }), {
+      ...DEFAULTS,
+      preferredLabels: parsePreferredLabels(
+        'iPhone, Mobile, Mobil, Handy, Home, Privat, Work, Arbeit',
+      ),
+    });
+    expect(contact.phones.map((p) => p.label)).toEqual(['Handy', 'Privat', 'Arbeit']);
+  });
+});
+
+describe('DEFAULT_PREFERRED_LABELS', () => {
+  it('is what the manifest declares, so the fallback is a working configuration', () => {
+    // The view and the worker fall back to the constant when
+    // `preferences.refresh()` rejects. If it drifted from the manifest, that
+    // fallback would quietly order numbers differently than the setting says.
+    const manifest = JSON.parse(
+      readFileSync(new URL('../../manifest.json', import.meta.url), 'utf8'),
+    ) as { preferences: { name: string; default: string }[] };
+    const declared = manifest.preferences.find((p) => p.name === 'preferredLabels');
+
+    expect(declared?.default).toBe(DEFAULT_PREFERRED_LABELS);
   });
 });
 

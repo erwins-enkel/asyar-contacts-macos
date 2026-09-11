@@ -39,6 +39,47 @@ Pitfalls, all of them hit on the first attempt:
 The alternative — AppleScript against Contacts.app — was not taken: it launches
 the app, triggers an Automation prompt, and is orders of magnitude slower.
 
+### Number labels carry a language-independent name
+
+**SOURCE** (Apple's `CNLabel*` constants), and visible in the label strings the helper
+memoizes. macOS' own labels are sentinel-wrapped: `_$!<Mobile>!$_`, `_$!<Home>!$_`,
+`_$!<Work>!$_`, `_$!<HomeFax>!$_`. `CNLabeledValue.localizedStringForLabel` turns those
+into what the user sees — "Handy", "Privat", "Arbeit" on a German Mac — and the wrapped
+form stays the same everywhere.
+
+Consequence for `preferredLabels`: matching the **localized text** needs one entry per
+language and silently fails on the next one, while matching the **name inside the
+brackets** works on every system. `labeled()` in `src/contacts/jxa.ts` therefore emits
+both — `l` for display, `k` for ordering — and `k` only when the brackets were there,
+which is exactly macOS' own labels.
+
+Two label kinds carry no bracketed name and are matched by text instead:
+`iPhone` and `Apple Watch` (never translated, so the text is already canonical) and
+anything the user typed by hand.
+
+**Not yet OBSERVED on this machine.** The check that belongs here, on a Mac with a
+non-English system language:
+
+```sh
+osascript -l JavaScript -e 'ObjC.import("Contacts");
+var st = $.CNContactStore.alloc.init;
+var ks = $(["phoneNumbers"]);
+var req = $.CNContactFetchRequest.alloc.initWithKeysToFetch(ks);
+var n = 0;
+st.enumerateContactsWithFetchRequestErrorUsingBlock(req, $(), function (c) {
+  if (n++ > 4) return;
+  var ps = c.phoneNumbers;
+  for (var i = 0; i < Number(ps.count); i++) {
+    var lv = ps.objectAtIndex(i);
+    console.log(ObjC.unwrap(lv.label) + "  ->  " +
+      ObjC.unwrap($.CNLabeledValue.localizedStringForLabel(lv.label)));
+  }
+});'
+```
+
+Expected: `_$!<Mobile>!$_  ->  Handy`. Until that has been seen, the key route is
+reasoned, not verified.
+
 ### TCC: Asyar does get the contacts grant
 
 **OBSERVED.** `/Applications/asyar.app/Contents/Info.plist` contains **no**
@@ -510,6 +551,28 @@ worker too.
 
 ---
 
+## Upstream: what `sdk-v4.8.0` / `v0.1.1-43` changes
+
+Four findings above were taken up by Asyar and shipped on 2026-08-22 (issue #1 in this
+repository; PRs [#641](https://github.com/Xoshbin/asyar/pull/641),
+[#642](https://github.com/Xoshbin/asyar/pull/642),
+[#643](https://github.com/Xoshbin/asyar/pull/643),
+[#644](https://github.com/Xoshbin/asyar/pull/644)). The observations stay as they are —
+they were true of `0.1.1-42`, which is what this file records.
+
+| Finding above | Retired by | Adoption |
+| --- | --- | --- |
+| "There is no opener service" | typed `IOpenerService` in the SDK | #2 |
+| "⌘K actions leak into other extensions' panels" | launcher scopes actions by `extensionId` | #3 |
+| "Commands cannot be hidden from search" | `"searchable": false` on a command | #4 |
+| "`asyar link --copy`, not the bare `asyar link`" | `asyar link` registers in `dev_extensions.json`; `asyar unlink` added | #5 |
+
+**One of them cannot simply be adopted.** `ExtensionCommand` is parsed with
+`#[serde(deny_unknown_fields)]`, so a manifest carrying `searchable` fails to parse
+entirely on any older host — the extension disappears rather than the command. And
+`minAppVersion` cannot gate it, because `discovery.rs` evaluates that only after the
+manifest has parsed. See #4.
+
 ## Still open
 
 - **Root search.** `enableExtensionSearch` is `true` on this machine, so a
@@ -525,3 +588,5 @@ worker too.
   wants to scroll unfiltered.
 - **Telegram.** Installed and registered on this machine (`tg://resolve?phone=`),
   the same handful of lines as WhatsApp.
+- **The label keys, seen rather than reasoned.** The command above, run on this Mac —
+  see "Number labels carry a language-independent name".

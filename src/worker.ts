@@ -42,6 +42,7 @@ import type {
 import manifest from '../manifest.json';
 import { readIndex, writeIndex } from './contacts/cache';
 import { loadIndex } from './contacts/loader';
+import { DEFAULT_PREFERRED_LABELS } from './contacts/normalize';
 import { buildRootResults } from './contacts/rootSearch';
 import {
   decideScheduledRefresh,
@@ -129,7 +130,7 @@ async function readPrefs(): Promise<Prefs> {
 
   return {
     countryCode: str('countryCode', 'auto'),
-    preferredLabels: str('preferredLabels', 'iPhone, Mobil, Mobile, Handy, Privat'),
+    preferredLabels: str('preferredLabels', DEFAULT_PREFERRED_LABELS),
     includeOrganizations: bool('includeOrganizations', true),
     backgroundRefresh: bool('backgroundRefresh', true),
   };
